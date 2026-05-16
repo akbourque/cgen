@@ -61,3 +61,9 @@ Every single struct and method emitted by cgen is fully wrapped in struct Javado
 When imported into modern development environments (like VS Code,CLion, or Neovim), your language server (LSP) will parse
 the metadata definitions natively, providing beautiful hover information, functional parameter signatures, and
 autocomplete context definitions as you type.
+
+
+## Acknowledgments
+
+* **Gemini (Google)** - Acted as an AI pair programmer for porting logic,
+structural code lowering, and expanding test coverage.
