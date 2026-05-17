@@ -198,3 +198,77 @@ int cgen_app_run(const cgen_app_def_t *app, int argc, char **argv) {
 
     return 0;
 }
+
+static void framework_replace_string(pstr_builder_t *sb, const char *token, const char *rep, size_t rep_len) {
+    while (1) {
+        pstr_slice_t match = pstr.builder.find_cstr(sb, token);
+        if (match.ptr == NULL) break;
+        size_t offset = (size_t)(match.ptr - (char *)sb->vec.data);
+        pstr.builder.replace_range(sb, offset, match.len, rep, rep_len);
+    }
+}
+
+static void framework_expand_dual_tokens(pstr_builder_t *sb, const char *type_name, const char *t_full, const char *t_full_u, const char *t_base, const char *t_base_u) {
+    size_t len = strlen(type_name);
+    size_t base_len = len;
+    if (len > 2 && type_name[len - 2] == '_' && (type_name[len - 1] == 't' || type_name[len - 1] == 'T')) {
+        base_len = len - 2;
+    }
+
+    pstr_t *full_exact = pstr_format("%s", type_name);
+    pstr_t *full_upper = pstr_format("%s", type_name);
+    for (size_t i = 0; i < full_upper->len; i++) full_upper->buf[i] = toupper((unsigned char)full_upper->buf[i]);
+
+    pstr_t *base_exact = pstr_format("%.*s", (int)base_len, type_name);
+    pstr_t *base_upper = pstr_format("%.*s", (int)base_len, type_name);
+    for (size_t i = 0; i < base_upper->len; i++) base_upper->buf[i] = toupper((unsigned char)base_upper->buf[i]);
+
+    framework_replace_string(sb, t_base_u, base_upper->buf, base_upper->len);
+    framework_replace_string(sb, t_base, base_exact->buf, base_exact->len);
+    framework_replace_string(sb, t_full_u, full_upper->buf, full_upper->len);
+    framework_replace_string(sb, t_full, full_exact->buf, full_exact->len);
+
+    pstr.free(full_exact); pstr.free(full_upper);
+    pstr.free(base_exact); pstr.free(base_upper);
+}
+
+int cgen_app_run_dual(const cgen_app_dual_def_t *app, int argc, char **argv) {
+    if (argc < 3 || strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
+        printf("Usage: cgen %s <key_type> <value_type>\n", app->subcommand_name);
+        return 0;
+    }
+
+    const char *key_type = argv[1];
+    const char *val_type = argv[2];
+
+    size_t k_len = strlen(key_type);
+    if (k_len > 2 && key_type[k_len - 2] == '_' && (key_type[k_len - 1] == 't' || key_type[k_len - 1] == 'T')) k_len -= 2;
+    size_t v_len = strlen(val_type);
+    if (v_len > 2 && val_type[v_len - 2] == '_' && (val_type[v_len - 1] == 't' || val_type[v_len - 1] == 'T')) v_len -= 2;
+
+    pstr_t *path_h = pstr_format("%s_%.*s_%.*s.h", app->subcommand_name, (int)k_len, key_type, (int)v_len, val_type);
+    pstr_t *path_c = pstr_format("%s_%.*s_%.*s.c", app->subcommand_name, (int)k_len, key_type, (int)v_len, val_type);
+
+    // Generate Header output structures
+    pstr_builder_t sb_h; pstr.builder.init(&sb_h);
+    pstr.builder.append_cstr(&sb_h, app->template_h);
+    framework_expand_dual_tokens(&sb_h, key_type, "{{KEY}}", "{{KEY_U}}", "{{KEY_B}}", "{{KEY_BU}}");
+    framework_expand_dual_tokens(&sb_h, val_type, "{{VAL}}", "{{VAL_U}}", "{{VAL_B}}", "{{VAL_BU}}");
+
+    // Generate Source output structures
+    pstr_builder_t sb_c; pstr.builder.init(&sb_c);
+    pstr.builder.append_cstr(&sb_c, app->template_c);
+    framework_expand_dual_tokens(&sb_c, key_type, "{{KEY}}", "{{KEY_U}}", "{{KEY_B}}", "{{KEY_BU}}");
+    framework_expand_dual_tokens(&sb_c, val_type, "{{VAL}}", "{{VAL_U}}", "{{VAL_B}}", "{{VAL_BU}}");
+
+    if (write_file_clobber(path_h->buf, &sb_h) == false) {
+        fprintf(stderr, "Error: Failed writing %s\n", path_h->buf);
+    }
+    if (write_file_clobber(path_c->buf, &sb_c) == false) {
+        fprintf(stderr, "Error: Failed writing %s\n", path_c->buf);
+    }
+
+    pstr.builder.cleanup(&sb_h); pstr.builder.cleanup(&sb_c);
+    pstr.free(path_h); pstr.free(path_c);
+    return 0;
+}

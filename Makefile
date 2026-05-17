@@ -13,7 +13,7 @@ VENDOR_OBJS = $(VENDOR_SRCS:.c=.o)
 
 .PHONY: all clean
 
-all: cgen cgen-vec cgen-sbovec cgen-map
+all: cgen cgen-vec cgen-sbovec cgen-map cgen-ring cgen-pqueue cgen-option cgen-result cgen-btree
 
 # Central driver orchestrator
 cgen: main.o
@@ -28,7 +28,23 @@ cgen-sbovec: cgen-sbovec.o $(FRAMEWORK_OBJS) $(VENDOR_OBJS)
 	$(CC) $(CFLAGS) $^ -o $@
 
 # SWAR-accelerated SwissTable hash map generator
-cgen-map: cgen-map.o $(VENDOR_OBJS)
+cgen-map: cgen-map.o $(FRAMEWORK_OBJS) $(VENDOR_OBJS)
+	$(CC) $(CFLAGS) $^ -o $@
+
+# 
+cgen-ring: cgen-ring.o $(FRAMEWORK_OBJS) $(VENDOR_OBJS)
+	$(CC) $(CFLAGS) $^ -o $@
+
+cgen-pqueue: cgen-pqueue.o $(FRAMEWORK_OBJS) $(VENDOR_OBJS)
+	$(CC) $(CFLAGS) $^ -o $@
+
+cgen-option: cgen-option.o $(FRAMEWORK_OBJS) $(VENDOR_OBJS)
+	$(CC) $(CFLAGS) $^ -o $@
+
+cgen-result: cgen-result.o $(FRAMEWORK_OBJS) $(VENDOR_OBJS)
+	$(CC) $(CFLAGS) $^ -o $@
+
+cgen-btree: cgen-btree.o $(FRAMEWORK_OBJS) $(VENDOR_OBJS)
 	$(CC) $(CFLAGS) $^ -o $@
 
 # Pattern rule for local and nested vendor compilation
@@ -36,4 +52,5 @@ cgen-map: cgen-map.o $(VENDOR_OBJS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f *.o vendor/*.o cgen cgen-vec cgen-sbovec cgen-map
+	rm -f *.o vendor/*.o cgen cgen-vec cgen-sbovec cgen-map cgen-ring cgen-pqueue cgen-option cgen-result
+	rm -f cgen-btree
