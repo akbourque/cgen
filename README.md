@@ -35,7 +35,7 @@ Compile the entire suite of generators from the source root directory using the 
 ```bash
 make
 ```
-Make sure the generated sub-commands `cgen-vec`, `cgen-sbovec` and `cgen-map` are in a directory that is in your PATH.
+Make sure the generated sub-commands `cgen-vec`, `cgen-sbovec` and `cgen-map` are in a directory that is in your PATH so that cgen can find them.
 
 ### 2. Generate Type-Safe Containers
 Run the unified driver executable to spin up containers for whatever navtive or custom types your application 
@@ -57,11 +57,14 @@ Use the -o or --out-dir options to point outputs directly to your source folders
 ```bash
     ./cgen vec int -o ./src/containers
 ```
-## 📝 Generated Code Documentation & Tooltips
+## Generated Code Documentation & Tooltips
 Every single struct and method emitted by cgen is fully wrapped in struct Javadoc-compliant Doxygen comment configurations.
 When imported into modern development environments (like VS Code,CLion, or Neovim), your language server (LSP) will parse
 the metadata definitions natively, providing beautiful hover information, functional parameter signatures, and
 autocomplete context definitions as you type.
+
+## More subcommand engines to come
+Coming soon more subcommand engines to generate other usable containers and types.
 
 
 ## Acknowledgments

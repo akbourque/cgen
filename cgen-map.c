@@ -7,8 +7,8 @@
 // --- The Documented SwissTable SWAR Header Template ---
 const char *MAP_TEMPLATE_H =
     "#pragma once\n"
-    "#ifndef MAP_{{KEY_U}}_{{VAL_U}}_H\n"
-    "#define MAP_{{KEY_U}}_{{VAL_U}}_H\n\n"
+    "#ifndef MAP_{{KEY_BU}}_{{VAL_BU}}_H\n"
+    "#define MAP_{{KEY_BU}}_{{VAL_BU}}_H\n\n"
     "#include <stddef.h>\n"
     "#include <stdint.h>\n"
     "#include <stdbool.h>\n\n"
@@ -18,28 +18,28 @@ const char *MAP_TEMPLATE_H =
     "typedef struct {\n"
     "    {{KEY}} key; /**< The unique identifier key associated with this slot. */\n"
     "    {{VAL}} val; /**< The value mapped to the corresponding key. */\n"
-    "} map_entry_{{KEY}}_{{VAL}}_t;\n\n"
+    "} pair_{{KEY_B}}_{{VAL_B}}_t;\n\n"
     "/**\n"
     " * @brief Cache-conscious open-addressed hash map inspired by Google SwissTable.\n"
     " * @details Uses an 8-bucket parallel control byte array to achieve SIMD-like lookup performance.\n"
     " */\n"
     "typedef struct {\n"
     "    uint8_t *ctrl;                      /**< 1 byte per bucket tracking metadata state (Empty, Deleted, or Hash Signature). */\n"
-    "    map_entry_{{KEY}}_{{VAL}}_t *slots; /**< Contiguous payload data storage array matching the control byte layout. */\n"
+    "    pair_{{KEY_B}}_{{VAL_B}}_t *slots; /**< Contiguous payload data storage array matching the control byte layout. */\n"
     "    size_t len;                         /**< Total number of active elements currently inside the map. */\n"
     "    size_t cap;                         /**< Total bucket capacity boundary (Must always be a power of 2). */\n"
     "    size_t growth_limit;                /**< Maximum load factor threshold (75%) before triggers a realloc resize. */\n"
-    "} map_{{KEY}}_{{VAL}}_t;\n\n"
+    "} map_{{KEY_B}}_{{VAL_B}}_t;\n\n"
     "/**\n"
     " * @brief Initializes an empty hash map instance.\n"
     " * @param map Pointer to the target hash map structure.\n"
     " */\n"
-    "void map_{{KEY}}_{{VAL}}_init(map_{{KEY}}_{{VAL}}_t *map);\n\n"
+    "void map_{{KEY_B}}_{{VAL_B}}_init(map_{{KEY_B}}_{{VAL_B}}_t *map);\n\n"
     "/**\n"
     " * @brief Frees all dynamically allocated memory held by the hash map (metadata and slots).\n"
     " * @param map Pointer to the target hash map structure.\n"
     " */\n"
-    "void map_{{KEY}}_{{VAL}}_free(map_{{KEY}}_{{VAL}}_t *map);\n\n"
+    "void map_{{KEY_B}}_{{VAL_B}}_free(map_{{KEY_B}}_{{VAL_B}}_t *map);\n\n"
     "/**\n"
     " * @brief Inserts a key-value pair into the hash map or updates an existing key's value.\n"
     " * @param map Pointer to the target hash map structure.\n"
@@ -47,7 +47,7 @@ const char *MAP_TEMPLATE_H =
     " * @param val The value to associate with the corresponding key parameter.\n"
     " * @return true if a brand new key entry was created, false if an existing entry was updated in-place.\n"
     " */\n"
-    "bool map_{{KEY}}_{{VAL}}_insert(map_{{KEY}}_{{VAL}}_t *map, {{KEY}} key, {{VAL}} val);\n\n"
+    "bool map_{{KEY_B}}_{{VAL_B}}_insert(map_{{KEY_B}}_{{VAL_B}}_t *map, {{KEY}} key, {{VAL}} val);\n\n"
     "/**\n"
     " * @brief Searches for a key inside the hash map and obtains a pointer to its mapped value.\n"
     " * @note Returns a pointer instead of a value to allow in-place value mutations by reference.\n"
@@ -55,7 +55,7 @@ const char *MAP_TEMPLATE_H =
     " * @param key The unique key structure to search for inside the container arrays.\n"
     " * @return A direct mutable pointer to the value payload location, or NULL if the key was not found.\n"
     " */\n"
-    "{{VAL}} *map_{{KEY}}_{{VAL}}_get(map_{{KEY}}_{{VAL}}_t *map, {{KEY}} key);\n\n"
+    "{{VAL}} *map_{{KEY_B}}_{{VAL_B}}_get(map_{{KEY_B}}_{{VAL_B}}_t *map, {{KEY}} key);\n\n"
     "/**\n"
     " * @brief Removes a key-value pair entry from the hash map container.\n"
     " * @details Leaves behind a specialized deletion tombstone flag to prevent breaking lookup search paths.\n"
@@ -63,19 +63,19 @@ const char *MAP_TEMPLATE_H =
     " * @param key The unique identifier key to eliminate from the active slots.\n"
     " * @return true if the entry was successfully found and removed, false if the key did not exist inside the map.\n"
     " */\n"
-    "bool map_{{KEY}}_{{VAL}}_remove(map_{{KEY}}_{{VAL}}_t *map, {{KEY}} key);\n\n"
+    "bool map_{{KEY_B}}_{{VAL_B}}_remove(map_{{KEY_B}}_{{VAL_B}}_t *map, {{KEY}} key);\n\n"
     "#endif\n";
 
 // --- The SwissTable SWAR Implementation Template ---
 const char *MAP_TEMPLATE_C =
-    "#include \"map_{{KEY}}_{{VAL}}.h\"\n"
+    "#include \"map_{{KEY_B}}_{{VAL_B}}.h\"\n"
     "#include <stdlib.h>\n"
     "#include <string.h>\n"
     "#include <assert.h>\n\n"
     "// Metadata status bit definitions\n"
     "#define CTRL_EMPTY   0xFF\n"
     "#define CTRL_DELETED 0xFE\n\n"
-    "static inline uint64_t map_{{KEY}}_{{VAL}}_hash(const {{KEY}} *key) {\n"
+    "static inline uint64_t map_{{KEY_B}}_{{VAL_B}}_hash(const {{KEY}} *key) {\n"
     "    uint64_t hash = 14695981039346656037ULL;\n"
     "    const uint8_t *bytes = (const uint8_t *)key;\n"
     "    for (size_t i = 0; i < sizeof({{KEY}}); i++) {\n"
@@ -84,33 +84,33 @@ const char *MAP_TEMPLATE_C =
     "    }\n"
     "    return hash;\n"
     "}\n\n"
-    "static void map_{{KEY}}_{{VAL}}_realloc(map_{{KEY}}_{{VAL}}_t *map, size_t new_cap) {\n"
+    "static void map_{{KEY_B}}_{{VAL_B}}_realloc(map_{{KEY_B}}_{{VAL_B}}_t *map, size_t new_cap) {\n"
     "    size_t old_cap = map->cap;\n"
     "    uint8_t *old_ctrl = map->ctrl;\n"
-    "    map_entry_{{KEY}}_{{VAL}}_t *old_slots = map->slots;\n\n"
+    "    pair_{{KEY_B}}_{{VAL_B}}_t *old_slots = map->slots;\n\n"
     "    map->cap = new_cap;\n"
     "    map->growth_limit = (size_t)(new_cap * 0.75);\n"
     "    map->len = 0;\n"
     "    map->ctrl = (uint8_t *)malloc(new_cap);\n"
-    "    map->slots = (map_entry_{{KEY}}_{{VAL}}_t *)malloc(new_cap * sizeof(map_entry_{{KEY}}_{{VAL}}_t));\n"
+    "    map->slots = (pair_{{KEY_B}}_{{VAL_B}}_t *)malloc(new_cap * sizeof(pair{{KEY_B}}_{{VAL_B}}_t));\n"
     "    if (map->ctrl == NULL || map->slots == NULL) abort();\n"
     "    memset(map->ctrl, CTRL_EMPTY, new_cap);\n\n"
     "    for (size_t i = 0; i < old_cap; i++) {\n"
     "        if (old_ctrl[i] != CTRL_EMPTY && old_ctrl[i] != CTRL_DELETED) {\n"
-    "            map_{{KEY}}_{{VAL}}_insert(map, old_slots[i].key, old_slots[i].val);\n"
+    "            map_{{KEY_B}}_{{VAL_B}}_insert(map, old_slots[i].key, old_slots[i].val);\n"
     "        }\n"
     "    }\n"
     "    if (old_ctrl != NULL) free(old_ctrl);\n"
     "    if (old_slots != NULL) free(old_slots);\n"
     "}\n\n"
-    "void map_{{KEY}}_{{VAL}}_init(map_{{KEY}}_{{VAL}}_t *map) {\n"
+    "void map_{{KEY_B}}_{{VAL_B}}_init(map_{{KEY_B}}_{{VAL_B}}_t *map) {\n"
     "    map->ctrl = NULL;\n"
     "    map->slots = NULL;\n"
     "    map->len = 0;\n"
     "    map->cap = 0;\n"
     "    map->growth_limit = 0;\n"
     "}\n\n"
-    "void map_{{KEY}}_{{VAL}}_free(map_{{KEY}}_{{VAL}}_t *map) {\n"
+    "void map_{{KEY_B}}_{{VAL_B}}_free(map_{{KEY_B}}_{{VAL_B}}_t *map) {\n"
     "    if (map->ctrl != NULL) free(map->ctrl);\n"
     "    if (map->slots != NULL) free(map->slots);\n"
     "    map->ctrl = NULL;\n"
@@ -127,9 +127,9 @@ const char *MAP_TEMPLATE_C =
     "    uint64_t xor_res = block ^ target;\n"
     "    return (xor_res - 0x0101010101010101ULL) & ~xor_res & 0x8080808080808080ULL;\n"
     "}\n\n"
-    "{{VAL}} *map_{{KEY}}_{{VAL}}_get(map_{{KEY}}_{{VAL}}_t *map, {{KEY}} key) {\n"
+    "{{VAL}} *map_{{KEY_B}}_{{VAL_B}}_get(map_{{KEY_B}}_{{VAL_B}}_t *map, {{KEY}} key) {\n"
     "    if (map->len == 0) return NULL;\n"
-    "    uint64_t hash = map_{{KEY}}_{{VAL}}_hash(&key);\n"
+    "    uint64_t hash = map_{{KEY_B}}_{{VAL_B}}_hash(&key);\n"
     "    size_t hash_idx = (size_t)(hash & (map->cap - 1));\n"
     "    uint8_t h2 = (uint8_t)(hash & 0x7F);\n"
     "    size_t mask_mod = map->cap - 1;\n\n"
@@ -159,12 +159,12 @@ const char *MAP_TEMPLATE_C =
     "    }\n"
     "    return NULL;\n"
     "}\n\n"
-    "bool map_{{KEY}}_{{VAL}}_insert(map_{{KEY}}_{{VAL}}_t *map, {{KEY}} key, {{VAL}} val) {\n"
+    "bool map_{{KEY_B}}_{{VAL_B}}_insert(map_{{KEY_B}}_{{VAL_B}}_t *map, {{KEY}} key, {{VAL}} val) {\n"
     "    if (map->cap == 0 || map->len >= map->growth_limit) {\n"
     "        size_t new_cap = map->cap == 0 ? 16 : map->cap * 2;\n"
-    "        map_{{KEY}}_{{VAL}}_realloc(map, new_cap);\n"
+    "        map_{{KEY_B}}_{{VAL_B}}_realloc(map, new_cap);\n"
     "    }\n\n"
-    "    uint64_t hash = map_{{KEY}}_{{VAL}}_hash(&key);\n"
+    "    uint64_t hash = map_{{KEY_B}}_{{VAL_B}}_hash(&key);\n"
     "    size_t hash_idx = (size_t)(hash & (map->cap - 1));\n"
     "    uint8_t h2 = (uint8_t)(hash & 0x7F);\n"
     "    size_t mask_mod = map->cap - 1;\n"
@@ -192,9 +192,9 @@ const char *MAP_TEMPLATE_C =
     "    map->len++;\n"
     "    return true;\n"
     "}\n\n"
-    "bool map_{{KEY}}_{{VAL}}_remove(map_{{KEY}}_{{VAL}}_t *map, {{KEY}} key) {\n"
+    "bool map_{{KEY_B}}_{{VAL_B}}_remove(map_{{KEY_B}}_{{VAL_B}}_t *map, {{KEY}} key) {\n"
     "    if (map->len == 0) return false;\n"
-    "    uint64_t hash = map_{{KEY}}_{{VAL}}_hash(&key);\n"
+    "    uint64_t hash = map_{{KEY_B}}_{{VAL_B}}_hash(&key);\n"
     "    size_t hash_idx = (size_t)(hash & (map->cap - 1));\n"
     "    uint8_t h2 = (uint8_t)(hash & 0x7F);\n"
     "    size_t mask_mod = map->cap - 1;\n\n"
@@ -213,10 +213,50 @@ const char *MAP_TEMPLATE_C =
     "}\n";
 
 static pstr_t *replace_all(const char *src, const char *k, const char *ku, const char *v, const char *vu) {
+    // Determine Base lengths by checking for trailing type suffixes
+    size_t kb_len = strlen(k);
+    if (kb_len > 2 && k[kb_len - 2] == '_' && (k[kb_len - 1] == 't' || k[kb_len - 1] == 'T')) {
+        kb_len -= 2;
+    }
+
+    size_t vb_len = strlen(v);
+    if (vb_len > 2 && v[vb_len - 2] == '_' && (v[vb_len - 1] == 't' || v[vb_len - 1] == 'T')) {
+        vb_len -= 2;
+    }
+
+    char kb[128], kbu[128], vb[128], vbu[128];
+    snprintf(kb, sizeof(kb), "%.*s", (int)kb_len, k);
+    snprintf(kbu, sizeof(kbu), "%.*s", (int)kb_len, ku);
+    snprintf(vb, sizeof(vb), "%.*s", (int)vb_len, v);
+    snprintf(vbu, sizeof(vbu), "%.*s", (int)vb_len, vu);
+
     pstr_builder_t sb;
     pstr.builder.init(&sb);
     pstr.builder.append_cstr(&sb, src);
 
+    // Replace Base Tokens first
+    while (1) {
+        pstr_slice_t m = pstr.builder.find_cstr(&sb, "{{KEY_BU}}");
+        if (m.ptr == NULL) break;
+        pstr.builder.replace_range(&sb, (size_t)(m.ptr - (char *)sb.vec.data), m.len, kbu, strlen(kbu));
+    }
+    while (1) {
+        pstr_slice_t m = pstr.builder.find_cstr(&sb, "{{KEY_B}}");
+        if (m.ptr == NULL) break;
+        pstr.builder.replace_range(&sb, (size_t)(m.ptr - (char *)sb.vec.data), m.len, kb, strlen(kb));
+    }
+    while (1) {
+        pstr_slice_t m = pstr.builder.find_cstr(&sb, "{{VAL_BU}}");
+        if (m.ptr == NULL) break;
+        pstr.builder.replace_range(&sb, (size_t)(m.ptr - (char *)sb.vec.data), m.len, vbu, strlen(vbu));
+    }
+    while (1) {
+        pstr_slice_t m = pstr.builder.find_cstr(&sb, "{{VAL_B}}");
+        if (m.ptr == NULL) break;
+        pstr.builder.replace_range(&sb, (size_t)(m.ptr - (char *)sb.vec.data), m.len, vb, strlen(vb));
+    }
+
+    // Replace Standard Tokens
     while (1) {
         pstr_slice_t m = pstr.builder.find_cstr(&sb, "{{KEY_U}}");
         if (m.ptr == NULL) break;
@@ -228,7 +268,7 @@ static pstr_t *replace_all(const char *src, const char *k, const char *ku, const
         pstr.builder.replace_range(&sb, (size_t)(m.ptr - (char *)sb.vec.data), m.len, k, strlen(k));
     }
     while (1) {
-        pstr_slice_t m = pstr.builder.find_cstr(&sb, "{{VAL_U}}");
+        pstr_slice_t m = m = pstr.builder.find_cstr(&sb, "{{VAL_U}}");
         if (m.ptr == NULL) break;
         pstr.builder.replace_range(&sb, (size_t)(m.ptr - (char *)sb.vec.data), m.len, vu, strlen(vu));
     }
@@ -244,6 +284,13 @@ static pstr_t *replace_all(const char *src, const char *k, const char *ku, const
 }
 
 int main(int argc, char **argv) {
+    if (argc >= 2 && (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0)) {
+        printf("Usage: cgen map <key_type> <val_type>\n\n");
+        printf("Options:\n");
+        printf("  -h, --help       Show this help message\n");
+        return 0;
+    }
+
     if (argc < 3) {
         fprintf(stderr, "Usage: ./cgen-map <key_type> <val_type>\n");
         return 1;
@@ -251,7 +298,7 @@ int main(int argc, char **argv) {
     const char *k = argv[1];
     const char *v = argv[2];
 
-    // Generate screaming uppercase equivalents with clean formatting blocks
+    // Generate screaming uppercase equivalents
     char ku[128], vu[128];
     size_t i;
     
@@ -265,13 +312,26 @@ int main(int argc, char **argv) {
     }
     vu[i] = '\0';
 
+    // --- CRITICAL PATHNAME FIX ---
+    // Calculate the stripped base lengths for the output file naming paths
+    size_t kb_len = strlen(k);
+    if (kb_len > 2 && k[kb_len - 2] == '_' && (k[kb_len - 1] == 't' || k[kb_len - 1] == 'T')) {
+        kb_len -= 2;
+    }
+
+    size_t vb_len = strlen(v);
+    if (vb_len > 2 && v[vb_len - 2] == '_' && (v[vb_len - 1] == 't' || v[vb_len - 1] == 'T')) {
+        vb_len -= 2;
+    }
+
     pstr_t *out_h = replace_all(MAP_TEMPLATE_H, k, ku, v, vu);
     pstr_t *out_c = replace_all(MAP_TEMPLATE_C, k, ku, v, vu);
 
-    pstr_t *path_h = pstr_format("map_%s_%s.h", k, v);
-    pstr_t *path_c = pstr_format("map_%s_%s.c", k, v);
+    // Format output file paths using precision bounded %.*s markers
+    pstr_t *path_h = pstr_format("map_%.*s_%.*s.h", (int)kb_len, k, (int)vb_len, v);
+    pstr_t *path_c = pstr_format("map_%.*s_%.*s.c", (int)kb_len, k, (int)vb_len, v);
 
-    // Clobber files "the Linux way"
+    // Clobber files to disk
     FILE *fh = fopen(path_h->buf, "w");
     if (fh) { fwrite(out_h->buf, 1, out_h->len, fh); fclose(fh); }
     FILE *fc = fopen(path_c->buf, "w");
