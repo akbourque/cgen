@@ -35,6 +35,7 @@ Compile the entire suite of generators from the source root directory using the 
 ```bash
 make
 ```
+Make sure the generated sub-commands `cgen-vec`, `cgen-sbovec` and `cgen-map` are in a directory that is in your PATH.
 
 ### 2. Generate Type-Safe Containers
 Run the unified driver executable to spin up containers for whatever navtive or custom types your application 
