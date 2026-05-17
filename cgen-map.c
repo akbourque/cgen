@@ -3,6 +3,7 @@
 #include <string.h>
 #include <ctype.h>
 #include "vendor/libpstr.h"
+#include "cgen_framework.h"
 
 // --- The Documented SwissTable SWAR Header Template ---
 const char *MAP_TEMPLATE_H =
@@ -212,132 +213,14 @@ const char *MAP_TEMPLATE_C =
     "    return false;\n"
     "}\n";
 
-static pstr_t *replace_all(const char *src, const char *k, const char *ku, const char *v, const char *vu) {
-    // Determine Base lengths by checking for trailing type suffixes
-    size_t kb_len = strlen(k);
-    if (kb_len > 2 && k[kb_len - 2] == '_' && (k[kb_len - 1] == 't' || k[kb_len - 1] == 'T')) {
-        kb_len -= 2;
-    }
-
-    size_t vb_len = strlen(v);
-    if (vb_len > 2 && v[vb_len - 2] == '_' && (v[vb_len - 1] == 't' || v[vb_len - 1] == 'T')) {
-        vb_len -= 2;
-    }
-
-    char kb[128], kbu[128], vb[128], vbu[128];
-    snprintf(kb, sizeof(kb), "%.*s", (int)kb_len, k);
-    snprintf(kbu, sizeof(kbu), "%.*s", (int)kb_len, ku);
-    snprintf(vb, sizeof(vb), "%.*s", (int)vb_len, v);
-    snprintf(vbu, sizeof(vbu), "%.*s", (int)vb_len, vu);
-
-    pstr_builder_t sb;
-    pstr.builder.init(&sb);
-    pstr.builder.append_cstr(&sb, src);
-
-    // Replace Base Tokens first
-    while (1) {
-        pstr_slice_t m = pstr.builder.find_cstr(&sb, "{{KEY_BU}}");
-        if (m.ptr == NULL) break;
-        pstr.builder.replace_range(&sb, (size_t)(m.ptr - (char *)sb.vec.data), m.len, kbu, strlen(kbu));
-    }
-    while (1) {
-        pstr_slice_t m = pstr.builder.find_cstr(&sb, "{{KEY_B}}");
-        if (m.ptr == NULL) break;
-        pstr.builder.replace_range(&sb, (size_t)(m.ptr - (char *)sb.vec.data), m.len, kb, strlen(kb));
-    }
-    while (1) {
-        pstr_slice_t m = pstr.builder.find_cstr(&sb, "{{VAL_BU}}");
-        if (m.ptr == NULL) break;
-        pstr.builder.replace_range(&sb, (size_t)(m.ptr - (char *)sb.vec.data), m.len, vbu, strlen(vbu));
-    }
-    while (1) {
-        pstr_slice_t m = pstr.builder.find_cstr(&sb, "{{VAL_B}}");
-        if (m.ptr == NULL) break;
-        pstr.builder.replace_range(&sb, (size_t)(m.ptr - (char *)sb.vec.data), m.len, vb, strlen(vb));
-    }
-
-    // Replace Standard Tokens
-    while (1) {
-        pstr_slice_t m = pstr.builder.find_cstr(&sb, "{{KEY_U}}");
-        if (m.ptr == NULL) break;
-        pstr.builder.replace_range(&sb, (size_t)(m.ptr - (char *)sb.vec.data), m.len, ku, strlen(ku));
-    }
-    while (1) {
-        pstr_slice_t m = pstr.builder.find_cstr(&sb, "{{KEY}}");
-        if (m.ptr == NULL) break;
-        pstr.builder.replace_range(&sb, (size_t)(m.ptr - (char *)sb.vec.data), m.len, k, strlen(k));
-    }
-    while (1) {
-        pstr_slice_t m = m = pstr.builder.find_cstr(&sb, "{{VAL_U}}");
-        if (m.ptr == NULL) break;
-        pstr.builder.replace_range(&sb, (size_t)(m.ptr - (char *)sb.vec.data), m.len, vu, strlen(vu));
-    }
-    while (1) {
-        pstr_slice_t m = pstr.builder.find_cstr(&sb, "{{VAL}}");
-        if (m.ptr == NULL) break;
-        pstr.builder.replace_range(&sb, (size_t)(m.ptr - (char *)sb.vec.data), m.len, v, strlen(v));
-    }
-
-    pstr_t *res = pstr_from_cstr((char *)sb.vec.data);
-    pstr.builder.cleanup(&sb);
-    return res;
-}
 
 int main(int argc, char **argv) {
-    if (argc >= 2 && (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0)) {
-        printf("Usage: cgen map <key_type> <val_type>\n\n");
-        printf("Options:\n");
-        printf("  -h, --help       Show this help message\n");
-        return 0;
-    }
-
-    if (argc < 3) {
-        fprintf(stderr, "Usage: ./cgen-map <key_type> <val_type>\n");
-        return 1;
-    }
-    const char *k = argv[1];
-    const char *v = argv[2];
-
-    // Generate screaming uppercase equivalents
-    char ku[128], vu[128];
-    size_t i;
+    cgen_app_dual_def_t app = {
+        .subcommand_name = "map",
+        .template_h      = MAP_TEMPLATE_H,
+        .template_c      = MAP_TEMPLATE_C
+    };
     
-    for (i = 0; k[i]; i++) {
-        ku[i] = toupper((unsigned char)k[i]);
-    }
-    ku[i] = '\0';
-
-    for (i = 0; v[i]; i++) {
-        vu[i] = toupper((unsigned char)v[i]);
-    }
-    vu[i] = '\0';
-
-    // --- CRITICAL PATHNAME FIX ---
-    // Calculate the stripped base lengths for the output file naming paths
-    size_t kb_len = strlen(k);
-    if (kb_len > 2 && k[kb_len - 2] == '_' && (k[kb_len - 1] == 't' || k[kb_len - 1] == 'T')) {
-        kb_len -= 2;
-    }
-
-    size_t vb_len = strlen(v);
-    if (vb_len > 2 && v[vb_len - 2] == '_' && (v[vb_len - 1] == 't' || v[vb_len - 1] == 'T')) {
-        vb_len -= 2;
-    }
-
-    pstr_t *out_h = replace_all(MAP_TEMPLATE_H, k, ku, v, vu);
-    pstr_t *out_c = replace_all(MAP_TEMPLATE_C, k, ku, v, vu);
-
-    // Format output file paths using precision bounded %.*s markers
-    pstr_t *path_h = pstr_format("map_%.*s_%.*s.h", (int)kb_len, k, (int)vb_len, v);
-    pstr_t *path_c = pstr_format("map_%.*s_%.*s.c", (int)kb_len, k, (int)vb_len, v);
-
-    // Clobber files to disk
-    FILE *fh = fopen(path_h->buf, "w");
-    if (fh) { fwrite(out_h->buf, 1, out_h->len, fh); fclose(fh); }
-    FILE *fc = fopen(path_c->buf, "w");
-    if (fc) { fwrite(out_c->buf, 1, out_c->len, fc); fclose(fc); }
-
-    pstr.free(out_h); pstr.free(out_c);
-    pstr.free(path_h); pstr.free(path_c);
-    return 0;
+    // Hand execution and argument mapping over to the unified dual engine framework
+    return cgen_app_run_dual(&app, argc, argv);
 }

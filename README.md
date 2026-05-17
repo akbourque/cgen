@@ -63,6 +63,39 @@ When imported into modern development environments (like VS Code,CLion, or Neovi
 the metadata definitions natively, providing beautiful hover information, functional parameter signatures, and
 autocomplete context definitions as you type.
 
+## Extending cgen: Adding Custom Sub-commands
+
+`cgen` is built on a decoupled, highly extensible framework architecture. You can easily add your own domain-specific data structures or template generators without writing any argument-parsing, flag-validation, or file-handling boilerplate.
+
+### Step 1: Choose Your Engine Type
+Determine if your custom generator requires a single data type (like a vector) or a dual-type pair (like a map or result).
+
+### Step 2: Implement Your Sub-command File
+Create a new standalone source file (e.g., `cgen-stack.c`). Define your code layout templates using string variables, leveraging our standard token wrappers:
+* For Single-Type Engines: Use `{{00}}` (exact type name) and `{{00BU}}` (screaming uppercase base type name).
+* For Dual-Type Engines: Use `{{KEY}}`/`{{VAL}}` and their associated formatting modifiers (`_B`, `_BU`).
+
+### Step 3: Wire into the Framework Entrypoint
+Populate the appropriate app configuration structure and forward `argc`/`argv` straight into the framework's optimized runner paths:
+
+```c
+    #include "cgen_framework.h"
+
+    const char *STACK_H = "/* Your header template containing {{00}} tokens */";
+    const char *STACK_C = "/* Your source template containing {{00}} tokens */";
+
+    int main(int argc, char **argv) {
+        cgen_app_def_t app = {
+            .subcommand_name = "stack",
+            .opt_spec        = "=ttypename",
+            .template_h      = STACK_H,
+            .template_c      = STACK_C
+        };
+        // Let the framework handle help text, out-dirs, token shifts, and file I/O
+        return cgen_app_run(&app, argc - 1, argv + 1);
+    }
+``` 
+
 ## More subcommand engines to come
 Coming soon more subcommand engines to generate other usable containers and types.
 
