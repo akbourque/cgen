@@ -15,7 +15,11 @@ type-safe, and fully documented data structures tailored exactly to your specifi
 * **`cgen vec <type>`**: Emits dynamic, heap-allocated vectors featuring geometric capacity doubling boundaries.
 * **`cgen sbovec <type>`**: Emits advanced Small-Buffer Optimized vectors that can borrow arbitrary local stack buffers for zero-allocation fast paths, transparently escalating to the heap only if boundaries overflow.
 * **`cgen map <key_type> <val_type>`**: Emits high-performance open-addressed hash maps inspired by Google's SwissTable architecture, utilizing an 8-bucket SWAR (SIMD Within A Register) parallel control array to scan metadata in a single CPU instruction loop.
-
+* **`cgen ring <type>`**: Emits fixed-allocation, run-time bounded circular FIFO queues. Features a dual-mode entry profile that supports lossless data rejection at capacity boundaries or high-frequency lossy circulating overwrites with zero heap activity.
+* **`cgen pqueue <type>`**: Emits a dynamically resizing binary max-heap priority queue. Packs the entire tree into a flat, cache-dense contiguous array, utilizing user-defined function pointer comparators to decouple sorting policy from heap mechanics.
+* **`cgen option <type>`**: Emits a type-safe monadic option variant structure. Eliminates uninitialized memory reads and unsafe `NULL` data bugs through explicit enum state tracking and a strict, panicking `unwrap()` extraction layout.
+* **`cgen result <success_type> <error_type>`**: Emits an algebraic tagged union variant representing either a successful return value or a localized error payload. Features overlapping memory unions and panicking extractors (`unwrap` / `unwrap_err`) to enforce strict compile-time error path handling.
+* **`cgen btree <key_type> <val_type>`**: Emits a cache-dense, strictly ordered multi-way search tree map (Order 4 / 2-3-4 Tree). Ideal for range queries and sorted entry lookups, utilizing highly defensive top-down preemptive node-splitting algorithms to maintain ideal runtime balancing without back-tracking.
 ---
 
 ## 🏗 Architecture Layout
