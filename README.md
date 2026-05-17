@@ -95,6 +95,13 @@ Populate the appropriate app configuration structure and forward `argc`/`argv` s
         return cgen_app_run(&app, argc - 1, argv + 1);
     }
 ``` 
+### Step 4: Update the Build System
+Open the Makefile, add your new executable name to the all and clean target variables,
+and supply the single-line framework compilation target:
+```Makefile
+    cgen-stack: cgen-stack.o $(FRAMEWORK_$OBJS) $(VENDOR_OBJS)
+            $(CC) $(CFLAGS) $^ -o $@
+```
 
 ## More subcommand engines to come
 Coming soon more subcommand engines to generate other usable containers and types.
