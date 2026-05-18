@@ -78,11 +78,17 @@ test: all
 	./cgen-sbovec -o $(TEST_GEN_DIR) int
 	./cgen-sbovec -o $(TEST_GEN_DIR) custom_t
 	./cgen-map -o $(TEST_GEN_DIR) int int
-	./cgen-map -o $(TEST_GEN_DIR) int custom_t 
+	./cgen-map -o $(TEST_GEN_DIR) int custom_t
 	./cgen-btree -o $(TEST_GEN_DIR) int int
-	./cgen-btree -o $(TEST_GEN_DIR) int custom_t 
+	./cgen-btree -o $(TEST_GEN_DIR) int custom_t
 	./cgen-result -o $(TEST_GEN_DIR) int int
-	./cgen-result -o $(TEST_GEN_DIR) int custom_t 
+	./cgen-result -o $(TEST_GEN_DIR) int custom_t
+	./cgen-option -o $(TEST_GEN_DIR) int
+	./cgen-option -o $(TEST_GEN_DIR) custom_t
+	./cgen-ring -o $(TEST_GEN_DIR) int
+	./cgen-ring -o $(TEST_GEN_DIR) custom_t
+	./cgen-pqueue -o $(TEST_GEN_DIR) int
+	./cgen-pqueue -o $(TEST_GEN_DIR) custom_t
 	# Note: As you or contributors add maps, ring buffers, or priority queues,
 	# simply add their generation commands right here!
 	
@@ -99,6 +105,12 @@ test: all
 		$(TEST_GEN_DIR)/btree_int_custom.c \
 		$(TEST_GEN_DIR)/result_int_int.c \
 		$(TEST_GEN_DIR)/result_int_custom.c \
+		$(TEST_GEN_DIR)/option_int.c \
+		$(TEST_GEN_DIR)/option_custom.c \
+		$(TEST_GEN_DIR)/ring_int.c \
+		$(TEST_GEN_DIR)/ring_custom.c \
+		$(TEST_GEN_DIR)/pqueue_int.c \
+		$(TEST_GEN_DIR)/pqueue_custom.c \
 		-o test_runner
 	
 	@echo "🧪 Running automated assertions..."

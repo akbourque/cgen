@@ -106,6 +106,43 @@ and supply the single-line framework compilation target:
     cgen-stack: cgen-stack.o $(FRAMEWORK_$OBJS) $(VENDOR_OBJS)
             $(CC) $(CFLAGS) $^ -o $@
 ```
+## 🧪 Automated Integration Testing Harness
+
+`cgen` features a robust, compiler-level integration and regression testing matrix designed to evaluate container code-generation accuracy, type-safety boundaries, and memory lifecycle preservation across both primitive types and complex, heap-allocated user objects.
+
+### 🏛️ Architecture: Unity Build Design
+The test framework leverages a **Unity Build (Single Translation Unit)** architecture. Individual sub-suite modules (e.g., `test_vec.c`, `test_map.c`) are unified directly inside the primary test driver, `test_main.c`, via preprocessor routing. 
+
+This provides massive advantages:
+1. **Zero Makefile Drift:** Contributors can add test suites for brand new generators without ever needing to alter object linkage rules inside the `Makefile`.
+2. **Deterministic Flag Propagation:** Critical compilation rules (such as `-include mock_struct.h` and system attribute optimizations) automatically flow cleanly down to all modular test files.
+3. **No Header Boilerplate:** Exporting functions across separate translation boundaries is eliminated, keeping the testing codebase lean and discoverable.
+
+### 🎯 Assertive Testing Methodology
+Rather than relying on visual console printouts, this harness uses a strict **assertive methodology**. Every invariant, capacity growth boundary, and data boundary condition is verified using strict compile-time and runtime `assert()` statements. If a test does not exit cleanly with code `0`, the pipeline safely halts and catches regressions instantly.
+
+### 📦 Validation Matrix
+The harness automatically compiles code-generated variants for standard primitives (`int`) as well as a dynamic mock payload object (`custom_t`) containing heap-allocated pointers to verify custom element destructor callbacks.
+
+* **Single-Type Containers Verified:**
+    * `vec`: Continuous geometric resizing, boundary popping, and array range inserts.
+    * `sbovec`: Zero-allocation inline stack buffer borrowing escalating out to dynamic realloc heap migration.
+    * `option`: Monadic initialization boundaries (`some` vs `none`) and strict abort-safe unwrapping.
+    * `ring`: Run-time bounded First-In, First-Out (FIFO) capacity rejection and lossy circular overwriting.
+    * `pqueue`: Dynamic binary max/min heap sifting, maintaining sorted priorities during high-frequency inserts.
+* **Dual-Type Containers Verified:**
+    * `map`: Open-addressed, SIMD-like Google SwissTable cache layouts powered by 8-bucket parallel SWAR bit-scanning.
+    * `btree`: Saturated node-splitting, multi-way sorting tree balancing, and out-parameter extraction.
+    * `result`: Monadic `OK` value vs `ERR` payload variant wrapping and unwrap safety contexts.
+
+### 🚀 Running the Testing Pipeline
+
+The framework uses a fully insulated, sandboxed sandbox model (`test/generated/`) to guarantee your core directory structures remain completely pristine during generation steps.
+
+To execute the code-generation stream, compile the assertion suite, run all validations, and cleanly tear down the sandboxed targets, execute the master target command:
+
+```fish
+make clean && make test
 
 ## More subcommand engines to come
 Coming soon more subcommand engines to generate other usable containers and types.

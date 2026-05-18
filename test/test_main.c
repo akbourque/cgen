@@ -19,7 +19,9 @@ void free_custom_element(custom_t *item) {
 #include "test_map.c"
 #include "test_btree.c"
 #include "test_result.c"
-
+#include "test_option.c" // Mount Option Suite!
+#include "test_ring.c"   // Mount Ring Buffer Suite!
+#include "test_pqueue.c" // Mount Priority Queue Suite!
 
 int main(void) {
     printf("Executing automated validation suites...\n");
