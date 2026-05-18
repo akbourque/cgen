@@ -88,5 +88,5 @@ int main(int argc, char **argv) {
         .template_c      = RESULT_TEMPLATE_C
     };
     // Direct link straight into the shared double-token engine
-    return cgen_app_run_dual(&app, argc, argv);
+    return cgen_app_run_dual(&app, argc - 1, argv + 1);
 }

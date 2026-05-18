@@ -18,6 +18,7 @@ void free_custom_element(custom_t *item) {
 #include "test_sbovec.c"
 #include "test_map.c"
 #include "test_btree.c"
+#include "test_result.c"
 
 
 int main(void) {
@@ -28,6 +29,7 @@ int main(void) {
     run_sbovec_tests();
     run_map_tests();
     run_btree_tests();
+    run_result_tests();
     return 0;
 }
  
