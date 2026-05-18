@@ -75,6 +75,8 @@ test: all
 	@echo "📦 Generating container test fixtures..."
 	./cgen-vec -o $(TEST_GEN_DIR) int
 	./cgen-vec -o $(TEST_GEN_DIR) custom_t 
+	./cgen-sbovec -o $(TEST_GEN_DIR) int
+	./cgen-sbovec -o $(TEST_GEN_DIR) custom_t
 	# Note: As you or contributors add maps, ring buffers, or priority queues,
 	# simply add their generation commands right here!
 	
@@ -83,6 +85,8 @@ test: all
 		test/test_main.c \
 		$(TEST_GEN_DIR)/vec_int.c \
 		$(TEST_GEN_DIR)/vec_custom.c \
+		$(TEST_GEN_DIR)/sbovec_int.c \
+		$(TEST_GEN_DIR)/sbovec_custom.c \
 		-o test_runner
 	
 	@echo "🧪 Running automated assertions..."

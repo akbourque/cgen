@@ -9,6 +9,8 @@
 // Include the compile-time generated fixtures
 #include "vec_int.h"
 #include "vec_custom.h"
+#include "sbovec_int.h"
+#include "sbovec_custom.h"
 
 
 // Implementation of the cgen-compliant deep free callback function pointer
@@ -77,6 +79,72 @@ void test_vector_deep_free(void) {
     assert(v.data == NULL);
 }
 
+/**
+ * @brief Rigorous verification suite for External-Buffer Borrowing SBO Vectors.
+ */
+void test_sbovec_primitive(void) {
+    sbovec_int_t v;
+    
+    // Provision a local stack array of 4 elements to borrow
+    int local_scratchpad[4];
+    sbovec_int_init_with_buf(&v, local_scratchpad, 4);
+    
+    // 1. Assert initial invariants matching your buffer insertion rules
+    assert(v.data == local_scratchpad); // Pointer must point to stack
+    assert(v.len == 0);
+    assert(v.cap == 4);
+    assert(v.is_heap == false); // Should not have touched the allocator yet
+
+    // 2. Fill the container up to the exact threshold of your borrowed array
+    for (int i = 0; i < 4; i++) {
+        sbovec_int_push(&v, i * 100);
+    }
+    assert(v.len == 4);
+    assert(v.cap == 4);
+    assert(v.is_heap == false); // Still safely tracking on the local stack frame
+
+    // 3. Trigger a boundary breach! This must force allocation escalation
+    sbovec_int_push(&v, 9999);
+    
+    // Invariants post-escalation
+    assert(v.len == 5);
+    assert(v.cap == 8);          // Capacity doubled cleanly from 4
+    assert(v.is_heap == true);   // Heap flag flipped successfully
+    assert(v.data != local_scratchpad); // Pointer migrated safely to the dynamic heap
+    assert(*sbovec_int_back(&v) == 9999);
+
+    // 4. Teardown should safely free the heap allocation without touching the stack frame memory
+    sbovec_int_free(&v);
+    assert(v.data == NULL);
+    assert(v.is_heap == false);
+}
+
+/**
+ * @brief Verification suite for SBO elements using dynamic callback destruction.
+ */
+void test_sbovec_deep_free(void) {
+    sbovec_custom_t v;
+    
+    // Allocate space for 2 elements locally on the stack
+    custom_t stack_scratch[2];
+    sbovec_custom_init_with_buf(&v, stack_scratch, 2);
+
+    custom_t item1 = { .id = 101, .heap_string = strdup("SBO External Allocation A") };
+    custom_t item2 = { .id = 202, .heap_string = strdup("SBO External Allocation B") };
+
+    sbovec_custom_push(&v, item1);
+    sbovec_custom_push(&v, item2);
+
+    assert(v.len == 2);
+    assert(v.is_heap == false);
+
+    // Run your customized template deep destruction loop!
+    sbovec_custom_deep_free(&v, free_custom_element);
+    
+    // Invariants post-freeing
+    assert(v.len == 0);
+}
+
 int main(void) {
     printf("Executing primitive container assertions...\n");
     test_vector_primitive();
@@ -84,5 +152,11 @@ int main(void) {
     printf("Executing dynamic element callback deep-free assertions...\n");
     test_vector_deep_free();
 
+    printf("Executing small-buffer optimized assertions...\n");
+    test_sbovec_primitive();
+
+    printf("Executing small-buffer optimized callback deep-free assertions...\n");
+    test_sbovec_deep_free();
     return 0;
 }
+ 
