@@ -32,11 +32,39 @@ const char *BTREE_TEMPLATE_H =
     "    size_t count;\n"
     "    btree_{{KEY_B}}_{{VAL_B}}_cmp_fn cmp;\n"
     "} btree_{{KEY_B}}_{{VAL_B}}_t;\n\n"
-    
-    "void btree_{{KEY_B}}_{{VAL_B}}_init(btree_{{KEY_B}}_{{VAL_B}}_t *map, btree_{{KEY_B}}_{{VAL_B}}_cmp_fn cmp);\n"
-    "void btree_{{KEY_B}}_{{VAL_B}}_free(btree_{{KEY_B}}_{{VAL_B}}_t *map);\n"
-    "bool btree_{{KEY_B}}_{{VAL_B}}_insert(btree_{{KEY_B}}_{{VAL_B}}_t *map, {{KEY}} key, {{VAL}} val);\n"
-    "bool btree_{{KEY_B}}_{{VAL_B}}_get(const btree_{{KEY_B}}_{{VAL_B}}_t *map, {{KEY}} key, {{VAL}} *out_val);\n"
+    "/**\n"
+    " * @brief Initializes an empty B-Tree map instance.\n"
+    " * @param map Pointer to the target B-Tree map structure.\n"
+    " * @param cmp Key comparison function pointer defining sorted ordering metrics.\n"
+    " */\n"
+    "void btree_{{KEY_B}}_{{VAL_B}}_init(btree_{{KEY_B}}_{{VAL_B}}_t *map, btree_{{KEY_B}}_{{VAL_B}}_cmp_fn cmp);\n\n"
+    "/**\n"
+    " * @brief Frees all dynamically allocated memory held by the B-Tree map nodes.\n"
+    " * @param map Pointer to the target B-Tree map structure.\n"
+    " */\n"
+    "void btree_{{KEY_B}}_{{VAL_B}}_free(btree_{{KEY_B}}_{{VAL_B}}_t *map);\n\n"
+    "/**\n"
+    " * @brief Inserts a key-value pair into the B-Tree or updates an existing key's value.\n"
+    " * @param map Pointer to the target B-Tree map structure.\n"
+    " * @param key The unique sorted lookup key.\n"
+    " * @param val The value payload associated with the specified key.\n"
+    " * @return true if a brand new key entry was created, false if an existing entry was updated in-place.\n"
+    " */\n"
+    "bool btree_{{KEY_B}}_{{VAL_B}}_insert(btree_{{KEY_B}}_{{VAL_B}}_t *map, {{KEY}} key, {{VAL}} val);\n\n"
+    "/**\n"
+    " * @brief Searches for a key inside the B-Tree map and obtains a copy of its mapped value.\n"
+    " * @param map Pointer to the target B-Tree map structure.\n"
+    " * @param key The unique sorted lookup key parameter.\n"
+    " * @param out_val Output destination memory pointer where the found value copy will be written.\n"
+    " * @return true if the key was successfully located, false otherwise.\n"
+    " */\n"
+    "bool btree_{{KEY_B}}_{{VAL_B}}_get(const btree_{{KEY_B}}_{{VAL_B}}_t *map, {{KEY}} key, {{VAL}} *out_val);\n\n"
+    "/**\n"
+    " * @brief Quick validation check to determine if a specific key resides in the B-Tree map container.\n"
+    " * @param map Pointer to the target B-Tree map structure.\n"
+    " * @param key The unique sorted lookup key parameter.\n"
+    " * @return true if the key is present inside active tree nodes, false otherwise.\n"
+    " */\n"
     "bool btree_{{KEY_B}}_{{VAL_B}}_contains(const btree_{{KEY_B}}_{{VAL_B}}_t *map, {{KEY}} key);\n\n"
     "#endif\n";
 
@@ -48,7 +76,9 @@ const char *BTREE_TEMPLATE_C =
     "#include <stdlib.h>\n"
     "#include <string.h>\n"
     "#include \"btree_{{KEY_B}}_{{VAL_B}}.h\"\n\n"
-    
+    "/**\n"
+    " * @brief Internal helper to instantiate a brand new blank B-Tree node allocation.\n"
+    " */\n"
     "static btree_{{KEY_B}}_{{VAL_B}}_node_t *node_create(bool is_leaf) {\n"
     "    btree_{{KEY_B}}_{{VAL_B}}_node_t *node = (btree_{{KEY_B}}_{{VAL_B}}_node_t *)malloc(sizeof(btree_{{KEY_B}}_{{VAL_B}}_node_t));\n"
     "    if (node == NULL) return NULL;\n"
@@ -57,7 +87,9 @@ const char *BTREE_TEMPLATE_C =
     "    for (int i = 0; i < 4; i++) node->children[i] = NULL;\n"
     "    return node;\n"
     "}\n\n"
-    
+    "/**\n"
+    " * @brief Recursively traverses the sub-nodes layout, releasing dynamic storage balances.\n"
+    " */\n"
     "static void node_free_recursive(btree_{{KEY_B}}_{{VAL_B}}_node_t *node) {\n"
     "    if (node == NULL) return;\n"
     "    if (node->is_leaf == false) {\n"
@@ -70,7 +102,9 @@ const char *BTREE_TEMPLATE_C =
     "    }\n"
     "    free(node);\n"
     "}\n\n"
-    
+    "/**\n"
+    " * @brief Splits a saturated child node of a parent node to re-balance the Order 4 tree invariants.\n"
+    " */\n"
     "static void split_child(btree_{{KEY_B}}_{{VAL_B}}_node_t *parent, size_t child_idx) {\n"
     "    btree_{{KEY_B}}_{{VAL_B}}_node_t *full_child = parent->children[child_idx];\n"
     "    btree_{{KEY_B}}_{{VAL_B}}_node_t *right_sibling = node_create(full_child->is_leaf);\n"
@@ -97,7 +131,9 @@ const char *BTREE_TEMPLATE_C =
     "    parent->vals[child_idx] = full_child->vals[1];\n"
     "    parent->num_keys++;\n"
     "}\n\n"
-    
+    "/**\n"
+    " * @brief Helper to handle item insertions safely into non-saturated down-tree leaf targets.\n"
+    " */\n"
     "static bool insert_non_full(btree_{{KEY_B}}_{{VAL_B}}_node_t *node, {{KEY}} key, {{VAL}} val, btree_{{KEY_B}}_{{VAL_B}}_cmp_fn cmp) {\n"
     "    size_t i = node->num_keys;\n"
     "    if (node->is_leaf == true) {\n"
@@ -136,14 +172,12 @@ const char *BTREE_TEMPLATE_C =
     "        return insert_non_full(node->children[i], key, val, cmp);\n"
     "    }\n"
     "}\n\n"
-    
     "void btree_{{KEY_B}}_{{VAL_B}}_init(btree_{{KEY_B}}_{{VAL_B}}_t *map, btree_{{KEY_B}}_{{VAL_B}}_cmp_fn cmp) {\n"
     "    if (map == NULL) return;\n"
     "    map->root = NULL;\n"
     "    map->count = 0;\n"
     "    map->cmp = cmp;\n"
     "}\n\n"
-    
     "void btree_{{KEY_B}}_{{VAL_B}}_free(btree_{{KEY_B}}_{{VAL_B}}_t *map) {\n"
     "    if (map == NULL) return;\n"
     "    if (map->root != NULL) {\n"
@@ -152,7 +186,6 @@ const char *BTREE_TEMPLATE_C =
     "    }\n"
     "    map->count = 0;\n"
     "}\n\n"
-    
     "bool btree_{{KEY_B}}_{{VAL_B}}_insert(btree_{{KEY_B}}_{{VAL_B}}_t *map, {{KEY}} key, {{VAL}} val) {\n"
     "    if (map == NULL || map->cmp == NULL) return false;\n"
     "    if (map->root == NULL) {\n"
@@ -175,7 +208,6 @@ const char *BTREE_TEMPLATE_C =
     "    if (is_new) map->count++;\n"
     "    return true;\n"
     "}\n\n"
-    
     "bool btree_{{KEY_B}}_{{VAL_B}}_get(const btree_{{KEY_B}}_{{VAL_B}}_t *map, {{KEY}} key, {{VAL}} *out_val) {\n"
     "    if (map == NULL || map->root == NULL || map->cmp == NULL) return false;\n"
     "    btree_{{KEY_B}}_{{VAL_B}}_node_t *curr = map->root;\n"
@@ -191,7 +223,6 @@ const char *BTREE_TEMPLATE_C =
     "    }\n"
     "    return false;\n"
     "}\n\n"
-    
     "bool btree_{{KEY_B}}_{{VAL_B}}_contains(const btree_{{KEY_B}}_{{VAL_B}}_t *map, {{KEY}} key) {\n"
     "    return btree_{{KEY_B}}_{{VAL_B}}_get(map, key, NULL);\n"
     "}\n";
@@ -205,5 +236,6 @@ int main(int argc, char **argv) {
         .template_h      = BTREE_TEMPLATE_H,
         .template_c      = BTREE_TEMPLATE_C
     };
-    return cgen_app_run_dual(&app, argc, argv);
+    // Slices off argv[0] safely to align cleanly with the framework parser logic
+    return cgen_app_run_dual(&app, argc - 1, argv + 1);
 }

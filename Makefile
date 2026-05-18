@@ -79,6 +79,8 @@ test: all
 	./cgen-sbovec -o $(TEST_GEN_DIR) custom_t
 	./cgen-map -o $(TEST_GEN_DIR) int int
 	./cgen-map -o $(TEST_GEN_DIR) int custom_t 
+	./cgen-btree -o $(TEST_GEN_DIR) int int
+	./cgen-btree -o $(TEST_GEN_DIR) int custom_t 
 	# Note: As you or contributors add maps, ring buffers, or priority queues,
 	# simply add their generation commands right here!
 	
@@ -91,6 +93,8 @@ test: all
 		$(TEST_GEN_DIR)/sbovec_custom.c \
 		$(TEST_GEN_DIR)/map_int_int.c \
 		$(TEST_GEN_DIR)/map_int_custom.c \
+		$(TEST_GEN_DIR)/btree_int_int.c \
+		$(TEST_GEN_DIR)/btree_int_custom.c \
 		-o test_runner
 	
 	@echo "🧪 Running automated assertions..."
