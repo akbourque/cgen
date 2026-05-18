@@ -233,42 +233,125 @@ static void framework_expand_dual_tokens(pstr_builder_t *sb, const char *type_na
 }
 
 int cgen_app_run_dual(const cgen_app_dual_def_t *app, int argc, char **argv) {
-    if (argc < 3 || strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
-        printf("Usage: cgen %s <key_type> <value_type>\n", app->subcommand_name);
-        return 0;
+    // 1. Register identical framework option schemas
+    cgen_opt_t schema[2];
+    schema[0] = cgen_opt_new((pstr_slice_t){.ptr = "=oout-dir", .len = 9});
+    schema[1] = cgen_opt_new((pstr_slice_t){.ptr = "-hhelp", .len = 6});
+
+    cgen_parser_t parser;
+    cgen_parser_init(&parser, argc, argv, schema, 2);
+
+    pstr_t *out_dir = NULL;
+    pstr_t *parsed_key = NULL;
+    pstr_t *parsed_val = NULL;
+
+    // 2. Drive argument streams through the state-machine parser
+    cgen_parse_result_t res;
+    while ((res = cgen_parser_next(&parser)).kind != CGEN_PARSE_NONE) {
+        if (res.kind == CGEN_PARSE_ERR) {
+            fprintf(stderr, "Error: %s\n", res.as.error.msg->buf);
+            cgen_parse_result_free(res);
+            cgen_parser_cleanup(&parser);
+            if (out_dir) pstr.free(out_dir);
+            if (parsed_key) pstr.free(parsed_key);
+            if (parsed_val) pstr.free(parsed_val);
+            return 1;
+        }
+
+        if (res.kind == CGEN_PARSE_OPTION) {
+            if (cgen_opt_short_name(res.as.option.opt) == 'h') {
+                printf("Usage: cgen %s [options] <key_type> <value_type>\n\n", app->subcommand_name);
+                printf("Options:\n");
+                printf("  -h, --help               Show this help menu context\n");
+                printf("  -o, --out-dir <dir>      Specify target output directory prefix\n");
+
+                cgen_parse_result_free(res);
+                cgen_parser_cleanup(&parser);
+                if (out_dir) pstr.free(out_dir);
+                if (parsed_key) pstr.free(parsed_key);
+                if (parsed_val) pstr.free(parsed_val);
+                return 0;
+            }
+            else if (cgen_opt_short_name(res.as.option.opt) == 'o') {
+                if (out_dir) pstr.free(out_dir);
+                out_dir = res.as.option.arg;
+                res.as.option.arg = NULL;
+            }
+        } 
+        else if (res.kind == CGEN_PARSE_NON_OPTION_ARG) {
+            // Sequentially collect the two required positional arguments
+            if (parsed_key == NULL) {
+                parsed_key = res.as.non_option_arg;
+                res.as.non_option_arg = NULL;
+            } else if (parsed_val == NULL) {
+                parsed_val = res.as.non_option_arg;
+                res.as.non_option_arg = NULL;
+            }
+        }
+        cgen_parse_result_free(res);
     }
 
-    const char *key_type = argv[1];
-    const char *val_type = argv[2];
+    // 3. Enforce structural validation constraints
+    if (parsed_key == NULL || parsed_key->len == 0 || parsed_val == NULL || parsed_val->len == 0) {
+        fprintf(stderr, "Error: Missing target <key_type> or <value_type> specification.\n");
+        cgen_parser_cleanup(&parser);
+        if (out_dir) pstr.free(out_dir);
+        if (parsed_key) pstr.free(parsed_key);
+        if (parsed_val) pstr.free(parsed_val);
+        return 1;
+    }
 
-    size_t k_len = strlen(key_type);
-    if (k_len > 2 && key_type[k_len - 2] == '_' && (key_type[k_len - 1] == 't' || key_type[k_len - 1] == 'T')) k_len -= 2;
-    size_t v_len = strlen(val_type);
-    if (v_len > 2 && val_type[v_len - 2] == '_' && (val_type[v_len - 1] == 't' || val_type[v_len - 1] == 'T')) v_len -= 2;
+    // 4. Resolve sandboxed base directories cleanly
+    pstr_t *base_path = NULL;
+    if (out_dir != NULL && out_dir->len > 0) {
+        if (out_dir->buf[out_dir->len - 1] == '/') {
+            base_path = pstr_format("%s", out_dir->buf);
+        } else {
+            base_path = pstr_format("%s/", out_dir->buf);
+        }
+    } else {
+        base_path = pstr_from_cstr("");
+    }
 
-    pstr_t *path_h = pstr_format("%s_%.*s_%.*s.h", app->subcommand_name, (int)k_len, key_type, (int)v_len, val_type);
-    pstr_t *path_c = pstr_format("%s_%.*s_%.*s.c", app->subcommand_name, (int)k_len, key_type, (int)v_len, val_type);
+    // Extract length boundaries stripping standard _t prefixes if they exist
+    size_t k_len = parsed_key->len;
+    if (k_len > 2 && parsed_key->buf[k_len - 2] == '_' && (parsed_key->buf[k_len - 1] == 't' || parsed_key->buf[k_len - 1] == 'T')) k_len -= 2;
+    
+    size_t v_len = parsed_val->len;
+    if (v_len > 2 && parsed_val->buf[v_len - 2] == '_' && (parsed_val->buf[v_len - 1] == 't' || parsed_val->buf[v_len - 1] == 'T')) v_len -= 2;
 
-    // Generate Header output structures
+    // 5. Construct final sandboxed file generation paths
+    pstr_t *path_h = pstr_format("%s%s_%.*s_%.*s.h", base_path->buf, app->subcommand_name, (int)k_len, parsed_key->buf, (int)v_len, parsed_val->buf);
+    pstr_t *path_c = pstr_format("%s%s_%.*s_%.*s.c", base_path->buf, app->subcommand_name, (int)k_len, parsed_key->buf, (int)v_len, parsed_val->buf);
+
+    // 6. Generate outputs running precise dual-token substitutions
     pstr_builder_t sb_h; pstr.builder.init(&sb_h);
     pstr.builder.append_cstr(&sb_h, app->template_h);
-    framework_expand_dual_tokens(&sb_h, key_type, "{{KEY}}", "{{KEY_U}}", "{{KEY_B}}", "{{KEY_BU}}");
-    framework_expand_dual_tokens(&sb_h, val_type, "{{VAL}}", "{{VAL_U}}", "{{VAL_B}}", "{{VAL_BU}}");
+    framework_expand_dual_tokens(&sb_h, parsed_key->buf, "{{KEY}}", "{{KEY_U}}", "{{KEY_B}}", "{{KEY_BU}}");
+    framework_expand_dual_tokens(&sb_h, parsed_val->buf, "{{VAL}}", "{{VAL_U}}", "{{VAL_B}}", "{{VAL_BU}}");
 
-    // Generate Source output structures
     pstr_builder_t sb_c; pstr.builder.init(&sb_c);
     pstr.builder.append_cstr(&sb_c, app->template_c);
-    framework_expand_dual_tokens(&sb_c, key_type, "{{KEY}}", "{{KEY_U}}", "{{KEY_B}}", "{{KEY_BU}}");
-    framework_expand_dual_tokens(&sb_c, val_type, "{{VAL}}", "{{VAL_U}}", "{{VAL_B}}", "{{VAL_BU}}");
+    framework_expand_dual_tokens(&sb_c, parsed_key->buf, "{{KEY}}", "{{KEY_U}}", "{{KEY_B}}", "{{KEY_BU}}");
+    framework_expand_dual_tokens(&sb_c, parsed_val->buf, "{{VAL}}", "{{VAL_U}}", "{{VAL_B}}", "{{VAL_BU}}");
 
     if (write_file_clobber(path_h->buf, &sb_h) == false) {
-        fprintf(stderr, "Error: Failed writing %s\n", path_h->buf);
+        fprintf(stderr, "Error: Failed writing file to destination: %s\n", path_h->buf);
     }
     if (write_file_clobber(path_c->buf, &sb_c) == false) {
-        fprintf(stderr, "Error: Failed writing %s\n", path_c->buf);
+        fprintf(stderr, "Error: Failed writing file to destination: %s\n", path_c->buf);
     }
 
-    pstr.builder.cleanup(&sb_h); pstr.builder.cleanup(&sb_c);
-    pstr.free(path_h); pstr.free(path_c);
+    // 7. Resource deallocations teardown
+    pstr.builder.cleanup(&sb_h); 
+    pstr.builder.cleanup(&sb_c);
+    pstr.free(path_h); 
+    pstr.free(path_c);
+    pstr.free(base_path);
+    pstr.free(parsed_key);
+    pstr.free(parsed_val);
+    if (out_dir) pstr.free(out_dir);
+    cgen_parser_cleanup(&parser);
+
     return 0;
 }

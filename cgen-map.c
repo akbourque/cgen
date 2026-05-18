@@ -65,6 +65,15 @@ const char *MAP_TEMPLATE_H =
     " * @return true if the entry was successfully found and removed, false if the key did not exist inside the map.\n"
     " */\n"
     "bool map_{{KEY_B}}_{{VAL_B}}_remove(map_{{KEY_B}}_{{VAL_B}}_t *map, {{KEY}} key);\n\n"
+    "/**\n"
+    " * @brief Function pointer signature for freeing internal mapped value resources.\n"
+    " */\n"
+    "typedef void (*map_{{KEY_B}}_{{VAL_B}}_free_fn)({{VAL}} *item);\n\n"
+    "/**\n"
+    " * @brief Iterates through active slots, executing a custom cleanup callback on values\n"
+    " * before dropping metadata structures.\n"
+    " */\n"
+    "void map_{{KEY_B}}_{{VAL_B}}_deep_free(map_{{KEY_B}}_{{VAL_B}}_t *map, map_{{KEY_B}}_{{VAL_B}}_free_fn f);\n"
     "#endif\n";
 
 // --- The SwissTable SWAR Implementation Template ---
@@ -93,7 +102,7 @@ const char *MAP_TEMPLATE_C =
     "    map->growth_limit = (size_t)(new_cap * 0.75);\n"
     "    map->len = 0;\n"
     "    map->ctrl = (uint8_t *)malloc(new_cap);\n"
-    "    map->slots = (pair_{{KEY_B}}_{{VAL_B}}_t *)malloc(new_cap * sizeof(pair{{KEY_B}}_{{VAL_B}}_t));\n"
+    "    map->slots = (pair_{{KEY_B}}_{{VAL_B}}_t *)malloc(new_cap * sizeof(pair_{{KEY_B}}_{{VAL_B}}_t));\n"
     "    if (map->ctrl == NULL || map->slots == NULL) abort();\n"
     "    memset(map->ctrl, CTRL_EMPTY, new_cap);\n\n"
     "    for (size_t i = 0; i < old_cap; i++) {\n"
@@ -211,8 +220,18 @@ const char *MAP_TEMPLATE_C =
     "        }\n"
     "    }\n"
     "    return false;\n"
+    "}\n\n"
+    "void map_{{KEY_B}}_{{VAL_B}}_deep_free(map_{{KEY_B}}_{{VAL_B}}_t *map, map_{{KEY_B}}_{{VAL_B}}_free_fn f) {\n"
+    "    if (map == NULL) return;\n"
+    "    if (f != NULL && map->ctrl != NULL) {\n"
+    "        for (size_t i = 0; i < map->cap; i++) {\n"
+    "            if (map->ctrl[i] != CTRL_EMPTY && map->ctrl[i] != CTRL_DELETED) {\n"
+    "                f(&map->slots[i].val);\n"
+    "            }\n"
+    "        }\n"
+    "    }\n"
+    "    map_{{KEY_B}}_{{VAL_B}}_free(map);\n"
     "}\n";
-
 
 int main(int argc, char **argv) {
     cgen_app_dual_def_t app = {
@@ -222,5 +241,5 @@ int main(int argc, char **argv) {
     };
     
     // Hand execution and argument mapping over to the unified dual engine framework
-    return cgen_app_run_dual(&app, argc, argv);
+    return cgen_app_run_dual(&app, argc - 1, argv + 1);
 }
