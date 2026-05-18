@@ -79,7 +79,7 @@ static bool write_file_clobber(const char *path, pstr_builder_t *sb) {
 int cgen_app_run(const cgen_app_def_t *app, int argc, char **argv) {
     cgen_opt_t schema[3];
     schema[0] = cgen_opt_new((pstr_slice_t){.ptr = (char*)app->opt_spec, .len = strlen(app->opt_spec)});
-    schema[1] = cgen_opt_new((pstr_slice_t){.ptr = "?oout-dir", .len = 9});
+    schema[1] = cgen_opt_new((pstr_slice_t){.ptr = "=oout-dir", .len = 9});
     schema[2] = cgen_opt_new((pstr_slice_t){.ptr = "-hhelp", .len = 6}); // Registered global help context
 
     cgen_parser_t parser;

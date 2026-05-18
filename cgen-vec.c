@@ -69,6 +69,18 @@ const char *VEC_TEMPLATE_H =
     " * @param count The number of elements to copy from the source buffer.\n"
     " */\n"
     "void vec_{{00B}}_append_range(vec_{{00B}}_t *v, const {{00}} *items, size_t count);\n\n"
+    "/**\n"
+    "  * @brief Function pointer signature for freeing internal element resources.\n"
+    "  * @param item Direct pointer to the element container within the array.\n"
+    "  */\n"
+    " typedef void (*vec_{{00B}}_free_fn)({{00}} *item);\n"
+    "/**\n"
+    "  * @brief Iterates through the vector, applying a custom cleanup function to each\n"
+    "  * element before freeing the underlying vector array itself.\n"
+    "  * @param v Pointer to the target vector structure.\n"
+    "  * @param f Function pointer to the element destructor (can be NULL for shallow free).\n"
+    "  */\n"
+    " void vec_{{00B}}_deep_free(vec_{{00B}}_t *v, vec_{{00B}}_free_fn f);\n"
     "#endif\n";
 
 // --- Upgraded Implementation Template ---
@@ -138,6 +150,17 @@ const char *VEC_TEMPLATE_C =
     "        v->data[v->len + i] = items[i];\n"
     "    }\n"
     "    v->len += count;\n"
+    "}\n"
+    "void vec_{{00B}}_deep_free(vec_{{00B}}_t *v, vec_{{00B}}_free_fn f) {\n"
+    "    if (v == NULL) {\n"
+    "        return;\n"
+    "    }\n"
+    "    if (f != NULL) {\n"
+    "        for (size_t i = 0; i < v->len; i++) {\n"
+    "            f(&v->data[i]);\n"
+    "        }\n"
+    "    }\n"
+    "    vec_{{00B}}_free(v);\n"
     "}\n";
 
 int main(int argc, char **argv) {

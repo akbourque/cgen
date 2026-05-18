@@ -1,7 +1,11 @@
+# ============================================================================
+# CGEN MASTER MAKEFILE CONFIGURATION
+# ============================================================================
 VERSION = 0.1.1
 
 CC = gcc
 CFLAGS = -Wall -Wextra -std=c11 -O2 -DCGEN_VERSION=\"$(VERSION)\"
+TARGET = cgen
 
 # 1. Framework sources used by cgen-vec and cgen-sbovec
 FRAMEWORK_SRCS = opt.c parser.c cgen_framework.c
@@ -54,3 +58,37 @@ cgen-btree: cgen-btree.o $(FRAMEWORK_OBJS) $(VENDOR_OBJS)
 clean:
 	rm -f *.o vendor/*.o cgen cgen-vec cgen-sbovec cgen-map cgen-ring cgen-pqueue cgen-option cgen-result
 	rm -f cgen-btree
+
+# ============================================================================
+# CGEN AUTOMATED INTEGRATION TESTING HARNESS
+# ============================================================================
+
+TEST_GEN_DIR = test/generated
+TEST_CFLAGS = -Wall -Wextra -std=c11 -g -I./$(TEST_GEN_DIR) -I./test -include mock_struct.h
+
+.PHONY: test clean_test
+
+test: all
+	@echo "🚀 Initializing cgen integration test framework..."
+	@mkdir -p $(TEST_GEN_DIR)
+	
+	@echo "📦 Generating container test fixtures..."
+	./cgen-vec -o $(TEST_GEN_DIR) int
+	./cgen-vec -o $(TEST_GEN_DIR) custom_t 
+	# Note: As you or contributors add maps, ring buffers, or priority queues,
+	# simply add their generation commands right here!
+	
+	@echo "🔨 Compiling test runner with generated assets..."
+	$(CC) $(TEST_CFLAGS) \
+		test/test_main.c \
+		$(TEST_GEN_DIR)/vec_int.c \
+		$(TEST_GEN_DIR)/vec_custom.c \
+		-o test_runner
+	
+	@echo "🧪 Running automated assertions..."
+	./test_runner
+	@echo "✨ Success! All cgen generated containers passed verification tests flawlessly."
+	@$(MAKE) clean_test
+
+clean_test:
+	rm -rf $(TEST_GEN_DIR) test_runner
