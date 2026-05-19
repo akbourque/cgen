@@ -34,12 +34,25 @@ type-safe, and fully documented data structures tailored exactly to your specifi
 
 ## 🚀 Quick Start & Compilation
 
-### 1. Build the Toolchain
+### 1. Building from Source
+
+This project depends on the `libpstr` library. To build `cgen` successfully using the provided Makefile,
+you must clone both repositories side-by-side in the same workspace directory:
+
+```fish
+# 1. Clone both repositories into the same parent folder
+git clone [https://github.com/yourusername/libpstr.git](https://github.com/yourusername/libpstr.git)
+git clone [https://github.com/yourusername/cgen.git](https://github.com/yourusername/cgen.git)
+
+# 2. Build and run the test suite
+
+Build the Toolchain
 Compile the entire suite of generators from the source root directory using the central configuration engine:
 ```bash
 make
 ```
-Make sure the generated sub-commands `cgen-vec`, `cgen-sbovec` and `cgen-map` are in a directory that is in your PATH so that cgen can find them.
+Make sure all generated sub-commands `cgen-vec`, `cgen-sbovec` and `cgen-map`, etc are in a directory that is in your PATH so that cgen can find them.  
+
 
 ### 2. Generate Type-Safe Containers
 Run the unified driver executable to spin up containers for whatever navtive or custom types your application 

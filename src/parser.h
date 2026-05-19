@@ -2,7 +2,7 @@
 #ifndef CGEN_PARSER_H
 #define CGEN_PARSER_H
 
-#include "vendor/libpstr.h"
+#include "libpstr.h"
 #include "opt.h"
 
 typedef enum {

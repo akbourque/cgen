@@ -4,77 +4,81 @@
 VERSION = 0.1.1
 
 CC = gcc
-CFLAGS = -Wall -Wextra -std=c11 -O2 -DCGEN_VERSION=\"$(VERSION)\"
+CFLAGS = -Wall -Wextra -std=c11 -O2 -DCGEN_VERSION=\"$(VERSION)\" -Isrc -I../libpstr/src
 TARGET = cgen
 
-# 1. Framework sources used by cgen-vec and cgen-sbovec
-FRAMEWORK_SRCS = opt.c parser.c cgen_framework.c
+# Path to our peer library static archive dependency
+LIBPSTR_A = ../libpstr/libpstr.a
+
+# 1. Framework sources relocated into the src/ folder
+FRAMEWORK_SRCS = src/opt.c src/parser.c src/cgen_framework.c
 FRAMEWORK_OBJS = $(FRAMEWORK_SRCS:.c=.o)
 
-# 2. Vendored libpstr sources required by ALL generation engines
-VENDOR_SRCS = vendor/libpstr.c vendor/panic.c vendor/pstr_utf8.c vendor/pstr_vec.c
-VENDOR_OBJS = $(VENDOR_SRCS:.c=.o)
-
-.PHONY: all clean
+.PHONY: all clean test clean_test
 
 all: cgen cgen-vec cgen-sbovec cgen-map cgen-ring cgen-pqueue cgen-option cgen-result cgen-btree
 
+# Automated trigger rule to build the peer library archive if it doesn't exist
+$(LIBPSTR_A):
+	$(MAKE) -C ../libpstr static
+
 # Central driver orchestrator
-cgen: main.o
-	$(CC) $(CFLAGS) $^ -o $@
+cgen: src/main.o $(LIBPSTR_A)
+	$(CC) $(CFLAGS) src/main.o $(LIBPSTR_A) -o $@
 
 # Standard dynamic array generator
-cgen-vec: cgen-vec.o $(FRAMEWORK_OBJS) $(VENDOR_OBJS)
+cgen-vec: src/cgen-vec.o $(FRAMEWORK_OBJS) $(LIBPSTR_A)
 	$(CC) $(CFLAGS) $^ -o $@
 
 # Small-buffer optimized array generator
-cgen-sbovec: cgen-sbovec.o $(FRAMEWORK_OBJS) $(VENDOR_OBJS)
+cgen-sbovec: src/cgen-sbovec.o $(FRAMEWORK_OBJS) $(LIBPSTR_A)
 	$(CC) $(CFLAGS) $^ -o $@
 
 # SWAR-accelerated SwissTable hash map generator
-cgen-map: cgen-map.o $(FRAMEWORK_OBJS) $(VENDOR_OBJS)
+cgen-map: src/cgen-map.o $(FRAMEWORK_OBJS) $(LIBPSTR_A)
 	$(CC) $(CFLAGS) $^ -o $@
 
-# 
-cgen-ring: cgen-ring.o $(FRAMEWORK_OBJS) $(VENDOR_OBJS)
+# Circular Ring Buffer generator
+cgen-ring: src/cgen-ring.o $(FRAMEWORK_OBJS) $(LIBPSTR_A)
 	$(CC) $(CFLAGS) $^ -o $@
 
-cgen-pqueue: cgen-pqueue.o $(FRAMEWORK_OBJS) $(VENDOR_OBJS)
+# Priority Queue generator
+cgen-pqueue: src/cgen-pqueue.o $(FRAMEWORK_OBJS) $(LIBPSTR_A)
 	$(CC) $(CFLAGS) $^ -o $@
 
-cgen-option: cgen-option.o $(FRAMEWORK_OBJS) $(VENDOR_OBJS)
+# Type-safe Option/Maybe monad generator
+cgen-option: src/cgen-option.o $(FRAMEWORK_OBJS) $(LIBPSTR_A)
 	$(CC) $(CFLAGS) $^ -o $@
 
-cgen-result: cgen-result.o $(FRAMEWORK_OBJS) $(VENDOR_OBJS)
+# Type-safe Error/Result monad generator
+cgen-result: src/cgen-result.o $(FRAMEWORK_OBJS) $(LIBPSTR_A)
 	$(CC) $(CFLAGS) $^ -o $@
 
-cgen-btree: cgen-btree.o $(FRAMEWORK_OBJS) $(VENDOR_OBJS)
+# Self-balancing B-Tree index generator
+cgen-btree: src/cgen-btree.o $(FRAMEWORK_OBJS) $(LIBPSTR_A)
 	$(CC) $(CFLAGS) $^ -o $@
 
-# Pattern rule for local and nested vendor compilation
-%.o: %.c Makefile
+# Pattern rule for local src compilation
+src/%.o: src/%.c Makefile
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f *.o vendor/*.o cgen cgen-vec cgen-sbovec cgen-map cgen-ring cgen-pqueue cgen-option cgen-result
-	rm -f cgen-btree
+	rm -f src/*.o cgen cgen-vec cgen-sbovec cgen-map cgen-ring cgen-pqueue cgen-option cgen-result cgen-btree
 
 # ============================================================================
 # CGEN AUTOMATED INTEGRATION TESTING HARNESS
 # ============================================================================
 
 TEST_GEN_DIR = test/generated
-TEST_CFLAGS = -Wall -Wextra -std=c11 -g -I./$(TEST_GEN_DIR) -I./test -include mock_struct.h
+TEST_CFLAGS = -Wall -Wextra -std=c11 -g -I./$(TEST_GEN_DIR) -I./test -I../libpstr/src -include mock_struct.h
 
-.PHONY: test clean_test
-
-test: all
+test: all $(LIBPSTR_A)
 	@echo "🚀 Initializing cgen integration test framework..."
 	@mkdir -p $(TEST_GEN_DIR)
 	
 	@echo "📦 Generating container test fixtures..."
 	./cgen-vec -o $(TEST_GEN_DIR) int
-	./cgen-vec -o $(TEST_GEN_DIR) custom_t 
+	./cgen-vec -o $(TEST_GEN_DIR) custom_t
 	./cgen-sbovec -o $(TEST_GEN_DIR) int
 	./cgen-sbovec -o $(TEST_GEN_DIR) custom_t
 	./cgen-map -o $(TEST_GEN_DIR) int int
@@ -89,8 +93,6 @@ test: all
 	./cgen-ring -o $(TEST_GEN_DIR) custom_t
 	./cgen-pqueue -o $(TEST_GEN_DIR) int
 	./cgen-pqueue -o $(TEST_GEN_DIR) custom_t
-	# Note: As you or contributors add maps, ring buffers, or priority queues,
-	# simply add their generation commands right here!
 	
 	@echo "🔨 Compiling test runner with generated assets..."
 	$(CC) $(TEST_CFLAGS) \
@@ -111,6 +113,7 @@ test: all
 		$(TEST_GEN_DIR)/ring_custom.c \
 		$(TEST_GEN_DIR)/pqueue_int.c \
 		$(TEST_GEN_DIR)/pqueue_custom.c \
+		$(LIBPSTR_A) \
 		-o test_runner
 	
 	@echo "🧪 Running automated assertions..."

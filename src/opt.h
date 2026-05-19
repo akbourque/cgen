@@ -2,7 +2,7 @@
 #ifndef CGEN_OPT_H
 #define CGEN_OPT_H
 
-#include "../libpstr.h"
+#include "libpstr.h"
 
 #define CGEN_NO_ARG '-'
 #define CGEN_OPTIONAL_ARG '?'

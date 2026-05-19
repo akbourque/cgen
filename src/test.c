@@ -3,7 +3,7 @@
 #include <string.h>
 #include "opt.h"
 #include "parser.h"
-#include "vendor/libpstr.h"
+#include "libpstr.h"
 
 static void test_opt_validation(void) {
     pstr_slice_t attr = { .ptr = "-nn_a-me", .len = 8 };

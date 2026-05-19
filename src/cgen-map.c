@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include "vendor/libpstr.h"
+#include "libpstr.h"
 #include "cgen_framework.h"
 
 // --- The Documented SwissTable SWAR Header Template ---
