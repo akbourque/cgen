@@ -1,6 +1,14 @@
+#include <stdio.h>
+#include <assert.h>
+#include <string.h>
+
+// Forward declarations to satisfy strict C11 compiler checks
+char *strdup(const char *s);
+void free_custom_element(custom_t *element);
 #include "result_int_int.h"
 #include "result_int_custom.h"
 
+char* strdup(const char*);
 /**
  * @brief Verifies standard primitive monadic success and failure wrappers.
  */

@@ -14,14 +14,15 @@ void free_custom_element(custom_t *item) {
 }
 
 // Unity Include Architecture: Pull modules directly into this translation unit
-#include "test_vec.c"
-#include "test_sbovec.c"
-#include "test_map.c"
-#include "test_btree.c"
-#include "test_result.c"
-#include "test_option.c" // Mount Option Suite!
-#include "test_ring.c"   // Mount Ring Buffer Suite!
-#include "test_pqueue.c" // Mount Priority Queue Suite!
+void run_vec_tests();
+void run_sbovec_tests();
+void run_map_tests();
+void run_btree_tests();
+void run_result_tests();
+void run_option_tests();
+void run_ring_tests();
+void run_pqueue_tests();
+void run_variant_tests();
 
 int main(void) {
     printf("Executing automated validation suites...\n");
@@ -32,6 +33,10 @@ int main(void) {
     run_map_tests();
     run_btree_tests();
     run_result_tests();
+    run_option_tests();
+    run_ring_tests();
+    run_pqueue_tests();
+    run_variant_tests();
     return 0;
 }
  

@@ -1,3 +1,10 @@
+#include <stdio.h>
+#include <assert.h>
+#include <string.h>
+
+// Forward declarations to satisfy strict C11 compiler checks
+char *strdup(const char *s);
+void free_custom_element(custom_t *element);
 #include "pqueue_int.h"
 #include "pqueue_custom.h"
 

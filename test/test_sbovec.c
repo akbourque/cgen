@@ -1,3 +1,11 @@
+#include <stdio.h>
+#include <assert.h>
+#include <string.h>
+
+// Forward declarations to satisfy independent C11 module compilation
+char *strdup(const char *s);
+void free_custom_element(custom_t *element);
+
 #include "sbovec_int.h"
 #include "sbovec_custom.h"
 

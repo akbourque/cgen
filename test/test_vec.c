@@ -1,6 +1,14 @@
+#include <stdio.h>
+#include <assert.h>
+#include <string.h>
+
+// Forward declarations to satisfy independent C11 module compilation
+char *strdup(const char *s);
+void free_custom_element(custom_t *element);
 #include "vec_int.h"
 #include "vec_custom.h"
 
+char* strdup(const char*);
 
 /**
  * @brief Rigorous verification suite for the generated Vector container code.
