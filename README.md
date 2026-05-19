@@ -20,6 +20,9 @@ type-safe, and fully documented data structures tailored exactly to your specifi
 * **`cgen option <type>`**: Emits a type-safe monadic option variant structure. Eliminates uninitialized memory reads and unsafe `NULL` data bugs through explicit enum state tracking and a strict, panicking `unwrap()` extraction layout.
 * **`cgen result <success_type> <error_type>`**: Emits an algebraic tagged union variant representing either a successful return value or a localized error payload. Features overlapping memory unions and panicking extractors (`unwrap` / `unwrap_err`) to enforce strict compile-time error path handling.
 * **`cgen btree <key_type> <val_type>`**: Emits a cache-dense, strictly ordered multi-way search tree map (Order 4 / 2-3-4 Tree). Ideal for range queries and sorted entry lookups, utilizing highly defensive top-down preemptive node-splitting algorithms to maintain ideal runtime balancing without back-tracking.
+* **`cgen map-iter <key_type> <val_type>`**: Emits metadata-aware open-addressed iterators matching your SwissTable schema. Implements an efficient control-byte scanning technique that bypasses gaps and deletion tombstones, offering a dual-style iteration API (direct un-packing vs. discrete pair structures) with in-place value mutation pointers.
+* **`cgen btree-iter <key_type> <val_type>`**: Emits an allocation-free, in-order backtracking traversal iterator for your Order 4 B-Trees. Employs an internal, optimized fixed-depth stack cache (`BTREE_ITER_MAX_DEPTH = 64`) to manage recursive child sub-branch suspension points without incurring dynamic runtime heap allocations.
+* **`cgen variant <name> <field:type> [field:type ...]`**: Emits an advanced, arbitrary multi-type Variant (Sum-Type / Tagged Union) container layout. It generates optimal data packing using overlapping memory fields to minimize structural byte padding, paired with a strict enum tag tracking engine and panicking type-safe extractors to completely eliminate illegal active-field memory reinterpretation bugs at runtime.
 ---
 
 ## 🏗 Architecture Layout
@@ -67,6 +70,17 @@ demands:
 
  - Generate a high-speed SwissTable mapping chars to doubles
 ./cgen map char double
+
+- Generate a high-speed SwissTable mapping chars to doubles and its iterator
+./cgen map char double
+./cgen map-iter char double
+
+ - Generate a cache-dense search tree index and its stack-based iterator
+./cgen btree int custom_t
+./cgen btree-iter int custom_t
+
+- Generate an algebraic type-safe Variant holding integers or text buffers
+./cgen variant sample_t high:int low:int text:pstr_builder_t
 ```
 ### 3. Global Directory Routing
 Both the vec and sbovec subcommand structures suport target directory routing rules.
@@ -142,11 +156,15 @@ The harness automatically compiles code-generated variants for standard primitiv
     * `sbovec`: Zero-allocation inline stack buffer borrowing escalating out to dynamic realloc heap migration.
     * `option`: Monadic initialization boundaries (`some` vs `none`) and strict abort-safe unwrapping.
     * `ring`: Run-time bounded First-In, First-Out (FIFO) capacity rejection and lossy circular overwriting.
-    * `pqueue`: Dynamic binary max/min heap sifting, maintaining sorted priorities during high-frequency inserts.
+    * `pqueue`: Dynamic binary max/min heap sifting, maintaining sorted priorities during high-frequency inserts.  
+    
 * **Dual-Type Containers Verified:**
-    * `map`: Open-addressed, SIMD-like Google SwissTable cache layouts powered by 8-bucket parallel SWAR bit-scanning.
-    * `btree`: Saturated node-splitting, multi-way sorting tree balancing, and out-parameter extraction.
+    * `map` / `map-iter`: Open-addressed, SIMD-like Google SwissTable cache layouts powered by 8-bucket parallel SWAR bit-scanning, fully validated alongside type-safe slot skipping iterators and entry reference mutations.
+    * `btree` / `btree-iter`: Saturated node-splitting, multi-way sorting tree balancing, and explicit stack-frame traversal engines confirming clean, recursive-free in-order sorting sweeps.
     * `result`: Monadic `OK` value vs `ERR` payload variant wrapping and unwrap safety contexts.
+
+* **variant**: Insulated field overlay writes, tag mutation validations, and explicit panic boundary verification checks ensuring unwrap-safe assertions abort predictably if a mismatched tag accessor is fetched.  
+  
 
 ### 🚀 Running the Testing Pipeline
 
