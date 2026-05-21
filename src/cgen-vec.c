@@ -1,6 +1,5 @@
 #include "cgen_framework.h"
 
-// --- Header Template Matching pstr_vec_t Naming ---
 const char *VEC_TEMPLATE_H = 
     "#pragma once\n"
     "#ifndef VEC_{{00BU}}_H\n"
@@ -83,9 +82,8 @@ const char *VEC_TEMPLATE_H =
     " void vec_{{00B}}_deep_free(vec_{{00B}}_t *v, vec_{{00B}}_free_fn f);\n"
     "#endif\n";
 
-// --- Upgraded Implementation Template ---
 const char *VEC_TEMPLATE_C = 
-    "#include \"vec_{{00B}}.h\"\n"
+    "#include \"vec_{{00}}.h\"\n"
     "#include <stdlib.h>\n\n"
     "void vec_{{00B}}_init(vec_{{00B}}_t *v) {\n"
     "    v->data = NULL;\n"
@@ -166,11 +164,10 @@ const char *VEC_TEMPLATE_C =
 int main(int argc, char **argv) {
     cgen_app_def_t app = {
         .subcommand_name = "vec",
-        .opt_spec        = "=ttypename", //
+        .opt_spec        = "=ttypename",
         .template_h      = VEC_TEMPLATE_H,
-        .template_c      = VEC_TEMPLATE_C
+        .template_c      = VEC_TEMPLATE_C,
     };
 
-    // Forward arguments safely, skipping argv[0] to protect alignment bounds
     return cgen_app_run(&app, argc - 1, argv + 1);
 }

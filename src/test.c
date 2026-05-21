@@ -6,42 +6,42 @@
 #include "libpstr.h"
 
 static void test_opt_validation(void) {
-    pstr_slice_t attr = { .ptr = "-nn_a-me", .len = 8 };
-    pstr_t *err = NULL;
+    libpstr_slice_t attr = { .ptr = "-nn_a-me", .len = 8 };
+    libpstr_t *err = NULL;
     
     // Test valid layout
-    assert(cgen_opt_check(attr, &err));
+    assert(cgen_opt_check(attr, &err) == true);
     cgen_opt_t p = cgen_opt_new(attr);
     assert(cgen_opt_arg_type(p) == '-');
     assert(cgen_opt_short_name(p) == 'n');
     
-    pstr_slice_t ln = cgen_opt_long_name(p);
+    libpstr_slice_t ln = cgen_opt_long_name(p);
     assert(ln.len == 6 && memcmp(ln.ptr, "n_a-me", 6) == 0);
 
-    // Test failure states matching opt.rs
-    assert(!cgen_opt_check((pstr_slice_t){"-", 1}, &err));     pstr.free(err);
-    assert(!cgen_opt_check((pstr_slice_t){"+n", 2}, &err));    pstr.free(err);
-    assert(!cgen_opt_check((pstr_slice_t){"- ", 2}, &err));    pstr.free(err);
-    assert(!cgen_opt_check((pstr_slice_t){"-nx", 3}, &err));   pstr.free(err);
-    assert(!cgen_opt_check((pstr_slice_t){"-n2n", 4}, &err));  pstr.free(err);
-    assert(!cgen_opt_check((pstr_slice_t){"-nn%", 4}, &err));  pstr.free(err);
-
+    // Test failure states
+    assert(cgen_opt_check((libpstr_slice_t){.ptr="-", .len=1}, &err) == false);     libpstr.pstr.free(err); err = NULL;
+    assert(cgen_opt_check((libpstr_slice_t){.ptr="+n", .len=2}, &err) == false);    libpstr.pstr.free(err); err = NULL;
+    assert(cgen_opt_check((libpstr_slice_t){.ptr="- ", .len=2}, &err) == false);    libpstr.pstr.free(err); err = NULL;
+    assert(cgen_opt_check((libpstr_slice_t){.ptr="-nx", .len=3}, &err) == false);   libpstr.pstr.free(err); err = NULL;
+    assert(cgen_opt_check((libpstr_slice_t){.ptr="-n2n", .len=4}, &err) == false);  libpstr.pstr.free(err); err = NULL;
+    assert(cgen_opt_check((libpstr_slice_t){.ptr="-nn%", .len=4}, &err) == false);  libpstr.pstr.free(err); err = NULL;
+    
     printf(" -> test_opt_validation passed.\n");
 }
 
 static void test_parse_short_clustering(void) {
     cgen_opt_t opts[4] = {
-        cgen_opt_new((pstr_slice_t){"-e", 2}),
-        cgen_opt_new((pstr_slice_t){"-f", 2}),
-        cgen_opt_new((pstr_slice_t){"?g", 2}),
-        cgen_opt_new((pstr_slice_t){"=h", 2})
+        cgen_opt_new((libpstr_slice_t){.ptr="-e", .len=2}),
+        cgen_opt_new((libpstr_slice_t){.ptr="-f", .len=2}),
+        cgen_opt_new((libpstr_slice_t){.ptr="?g", .len=2}),
+        cgen_opt_new((libpstr_slice_t){.ptr="=h", .len=2})
     };
     char *args[] = {"-fe", "-g", "-garg", "-harg", "-h", "arg"};
     cgen_parser_t p;
     cgen_parser_init(&p, 6, args, opts, 4);
 
     cgen_parse_result_t res;
-    
+
     // 1. Extract clustered '-f'
     res = cgen_parser_next(&p);
     assert(res.kind == CGEN_PARSE_OPTION);
@@ -91,10 +91,10 @@ static void test_parse_short_clustering(void) {
 
 static void test_parse_long_arguments(void) {
     cgen_opt_t opts[4] = {
-        cgen_opt_new((pstr_slice_t){"--ee", 4}),
-        cgen_opt_new((pstr_slice_t){"--ff", 4}),
-        cgen_opt_new((pstr_slice_t){"?-gg", 4}),
-        cgen_opt_new((pstr_slice_t){"=-hh", 4})
+        cgen_opt_new((libpstr_slice_t){.ptr="--ee", .len=4}),
+        cgen_opt_new((libpstr_slice_t){.ptr="--ff", .len=4}),
+        cgen_opt_new((libpstr_slice_t){.ptr="?-gg", .len=4}),
+        cgen_opt_new((libpstr_slice_t){.ptr="=-hh", .len=4})
     };
     char *args[] = {"--ff", "--ee", "--gg", "--gg=\"arg\"", "--hh=arg", "--hh", "arg"};
     cgen_parser_t p;
@@ -143,10 +143,10 @@ static void test_parse_long_arguments(void) {
 
 static void test_parser_errors(void) {
     cgen_opt_t opts[4] = {
-        cgen_opt_new((pstr_slice_t){"-fflag", 6}),
-        cgen_opt_new((pstr_slice_t){"-ggit", 5}),
-        cgen_opt_new((pstr_slice_t){"?mmy-opt", 8}),
-        cgen_opt_new((pstr_slice_t){"=nname", 6})
+        cgen_opt_new((libpstr_slice_t){.ptr="-fflag", .len=6}),
+        cgen_opt_new((libpstr_slice_t){.ptr="-ggit", .len=5}),
+        cgen_opt_new((libpstr_slice_t){.ptr="?mmy-opt", .len=8}),
+        cgen_opt_new((libpstr_slice_t){.ptr="=nname", .len=6})
     };
     char *args[] = {"-xg", "--unknown", "--name"};
     cgen_parser_t p;

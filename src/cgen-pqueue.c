@@ -84,7 +84,7 @@ const char *PQUEUE_TEMPLATE_H =
 // ============================================================================
 const char *PQUEUE_TEMPLATE_C =
     "#include <stdlib.h>\n"
-    "#include \"pqueue_{{00B}}.h\"\n\n"
+    "#include \"pqueue_{{00}}.h\"\n\n"
     
     "void pqueue_{{00B}}_init(pqueue_{{00B}}_t *pq, pqueue_{{00B}}_cmp_fn cmp) {\n"
     "    if (pq == NULL) return;\n"
@@ -184,7 +184,7 @@ int main(int argc, char **argv) {
         .subcommand_name = "pqueue",
         .opt_spec        = "=ttypename",
         .template_h      = PQUEUE_TEMPLATE_H,
-        .template_c      = PQUEUE_TEMPLATE_C
+        .template_c      = PQUEUE_TEMPLATE_C,
     };
     return cgen_app_run(&app, argc - 1, argv + 1);
 }

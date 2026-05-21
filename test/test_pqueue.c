@@ -6,7 +6,7 @@
 char *strdup(const char *s);
 void free_custom_element(custom_t *element);
 #include "pqueue_int.h"
-#include "pqueue_custom.h"
+#include "pqueue_custom_t.h"
 
 // Max-Heap Comparator: Returns positive if m > n
 int pqueue_cmp_int(const int *m, const int *n) {

@@ -8,8 +8,8 @@ void free_custom_element(custom_t *element);
 
 #include <assert.h>
 #include "btree_int_int.h"
-#include "btree_int_custom.h"
-#include "btree_iter_int_custom.h"
+#include "btree_int_custom_t.h"
+#include "btree_iter_int_custom_t.h"
 
 /**
  * @brief Evaluates strict key sorting order invariants.

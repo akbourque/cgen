@@ -10,7 +10,7 @@ const char *MAP_ITER_TEMPLATE_H =
     "#pragma once\n"
     "#ifndef MAP_ITER_{{KEY_BU}}_{{VAL_BU}}_H\n"
     "#define MAP_ITER_{{KEY_BU}}_{{VAL_BU}}_H\n\n"
-    "#include \"map_{{KEY_B}}_{{VAL_B}}.h\"\n"
+    "#include \"map_{{KEY}}_{{VAL}}.h\"\n"
     "#include <stdbool.h>\n"
     "#include <stddef.h>\n\n"
     "/**\n"
@@ -46,7 +46,7 @@ const char *MAP_ITER_TEMPLATE_H =
 
 // --- SwissTable Map Iterator Implementation Template ---
 const char *MAP_ITER_TEMPLATE_C =
-    "#include \"map_iter_{{KEY_B}}_{{VAL_B}}.h\"\n"
+    "#include \"map_iter_{{KEY}}_{{VAL}}.h\"\n"
     "#include <stdlib.h>\n\n"
     "map_iter_{{KEY_B}}_{{VAL_B}}_t map_iter_{{KEY_B}}_{{VAL_B}}_new(const map_{{KEY_B}}_{{VAL_B}}_t *map) {\n"
     "    map_iter_{{KEY_B}}_{{VAL_B}}_t iter;\n"

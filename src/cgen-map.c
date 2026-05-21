@@ -78,7 +78,7 @@ const char *MAP_TEMPLATE_H =
 
 // --- The SwissTable SWAR Implementation Template ---
 const char *MAP_TEMPLATE_C =
-    "#include \"map_{{KEY_B}}_{{VAL_B}}.h\"\n"
+    "#include \"map_{{KEY}}_{{VAL}}.h\"\n"
     "#include <stdlib.h>\n"
     "#include <string.h>\n"
     "#include <assert.h>\n\n"

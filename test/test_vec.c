@@ -6,7 +6,7 @@
 char *strdup(const char *s);
 void free_custom_element(custom_t *element);
 #include "vec_int.h"
-#include "vec_custom.h"
+#include "vec_custom_t.h"
 
 char* strdup(const char*);
 

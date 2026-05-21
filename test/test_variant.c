@@ -1,51 +1,50 @@
 #include <assert.h>
 #include <stdio.h>
-#include "libpstr.h" // defines pstr_builder_t
-#include "panic.h"   // defines ASSERT_PANIC
-#include "sample_t.h"// deInes sample_t
+#include <string.h>
+#include "libpstr.h"
+#include "../../libpstr/src/panic.h"
 
-void test_variant_happy_path(void) {
-    // 1. Test basic primitive initialization & inspection
-    sample_t v_high = sample_new_high(100);
-    assert(sample_is_high(&v_high));
-    assert(!sample_is_low(&v_high));
-    assert(sample_unwrap_high(&v_high) == 100);
-
-    // 2. Test custom struct (pstr_builder_t) tracking
-    // Assumes pstr_builder_t has a default init helper or mock instance
-    pstr_builder_t builder; 
-    memset(&builder, 0, sizeof(pstr_builder_t)); 
-    
-    sample_t v_text = sample_new_text(builder);
-    assert(sample_is_text(&v_text));
-    assert(!sample_is_high(&v_text));
-    
-    printf("  ✅ Variant happy paths passed successfully.\n");
-}
-
-void test_variant_panic_boundaries(void) {
-    sample_t v_high = sample_new_high(42);
-
-    // Verify that attempting to extract a 'low' from a 'high' container
-    // safely invokes your library's panic logic instead of giving raw bits
-    ASSERT_PANIC({
-        sample_unwrap_low(&v_high);
-    });
-
-    // Verify that attempting to extract 'text' from a 'high' container
-    // also triggers a controlled panic violation
-    ASSERT_PANIC({
-        sample_unwrap_text(&v_high);
-    });
-
-    printf("  ✅ Variant exceptional panic boundaries verified safely.\n");
-}
+// Example auto-generated variant
+#include "sample_t.h"
 
 void run_variant_tests(void) {
-    printf("🧪 Running cgen-variant Test Suite...\n");
+    printf("  [Variant] Running sample_t lifecycle tests...\n");
+
+    // --- 1. Test the 'high' variant (int) ---
+    sample_t v_high = sample_new_high(42);
+    assert(sample_is_high(&v_high) == true);
+    assert(sample_is_low(&v_high) == false);
+    assert(sample_is_text(&v_high) == false);
+    assert(sample_unwrap_high(&v_high) == 42);
+    // Verify panic on invalid unwrap
+    ASSERT_PANIC({sample_unwrap_low(&v_high);});
+
+    // --- 2. Test the 'low' variant (int) ---
+    sample_t v_low = sample_new_low(-999);
+    assert(sample_is_low(&v_low) == true);
+    assert(sample_is_high(&v_low) == false);
+    assert(sample_is_text(&v_low) == false);
+    assert(sample_unwrap_low(&v_low) == -999);
+
+    // --- 3. Test the 'text' variant (libpstr_builder_t) ---
+    libpstr_builder_t sb;
+    libpstr.builder.init(&sb);
+    libpstr.builder.append_cstr(&sb, "Variant Payload");
+
+    // Move the builder into the variant
+    sample_t v_text = sample_new_text(sb);
+    assert(sample_is_text(&v_text) == true);
+    assert(sample_is_high(&v_text) == false);
+    assert(sample_is_low(&v_text) == false);
+
+    // Extract it and verify the contents
+    libpstr_builder_t extracted = sample_unwrap_text(&v_text);
     
-    test_variant_happy_path();
-    test_variant_panic_boundaries();
+    // We can verify it worked by checking the length of the internal vector
+    assert(extracted.vec.len > 0); 
     
-    printf("✨ All variant integration tests passed cleanly!\n");
+    // Because this is C, we must manually clean up the builder we moved into the variant!
+    libpstr.builder.cleanup(&extracted);
+
+    printf("  [Variant] All tests passed!\n");
 }

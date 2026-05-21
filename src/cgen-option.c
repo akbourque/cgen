@@ -66,7 +66,7 @@ const char *OPTION_TEMPLATE_H =
 const char *OPTION_TEMPLATE_C =
     "#include <stdio.h>\n"
     "#include <stdlib.h>\n"
-    "#include \"option_{{00B}}.h\"\n\n"
+    "#include \"option_{{00}}.h\"\n\n"
     
     "option_{{00B}}_t option_{{00B}}_some({{00}} val) {\n"
     "    option_{{00B}}_t opt;\n"
@@ -99,6 +99,7 @@ const char *OPTION_TEMPLATE_C =
     "    return opt.as.value;\n"
     "}\n";
 
+
 // ============================================================================
 // 3. APPLICATION ENTRYPOINT
 // ============================================================================
@@ -107,7 +108,7 @@ int main(int argc, char **argv) {
         .subcommand_name = "option",
         .opt_spec        = "=ttypename",
         .template_h      = OPTION_TEMPLATE_H,
-        .template_c      = OPTION_TEMPLATE_C
+        .template_c      = OPTION_TEMPLATE_C,
     };
     return cgen_app_run(&app, argc - 1, argv + 1);
 }

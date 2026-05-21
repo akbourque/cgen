@@ -75,7 +75,7 @@ const char *BTREE_TEMPLATE_C =
     "#include <stdio.h>\n"
     "#include <stdlib.h>\n"
     "#include <string.h>\n"
-    "#include \"btree_{{KEY_B}}_{{VAL_B}}.h\"\n\n"
+    "#include \"btree_{{KEY}}_{{VAL}}.h\"\n\n"
     "/**\n"
     " * @brief Internal helper to instantiate a brand new blank B-Tree node allocation.\n"
     " */\n"

@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -6,65 +7,72 @@
 #include "opt.h"
 #include "parser.h"
 
-static void framework_replace_tokens(pstr_builder_t *sb, pstr_t *replacement) {
-    // Determine the base length by stripping a trailing '_t' or '_T' suffix
-    size_t base_len = replacement->len;
-    if (replacement->len > 2 && 
-        replacement->buf[replacement->len - 2] == '_' && 
-        (replacement->buf[replacement->len - 1] == 't' || replacement->buf[replacement->len - 1] == 'T')) {
-        base_len = replacement->len - 2;
+// =====================================================================
+// V2 ENGINE: The Generic "Slot Mapper" Implementation
+// =====================================================================
+
+int cgen_render_block(libpstr_builder_t *sb, libpstr_slice_t template_slice, cgen_token_t *tokens, size_t num_tokens) {
+    if (sb == NULL || template_slice.ptr == NULL) {
+        return -1;
     }
 
-    // Allocate exact and screaming uppercase full variants
-    pstr_t *full_exact = pstr_format("%s", replacement->buf);
-    pstr_t *full_upper = pstr_format("%s", replacement->buf);
-    for (size_t i = 0; i < full_upper->len; i++) {
-        full_upper->buf[i] = toupper((unsigned char)full_upper->buf[i]);
-    }
+    libpstr_slice_t remaining = template_slice;
+    libpstr_slice_t left, right;
 
-    // Allocate exact and screaming uppercase base variants
-    pstr_t *base_exact = pstr_format("%.*s", (int)base_len, replacement->buf);
-    pstr_t *base_upper = pstr_format("%.*s", (int)base_len, replacement->buf);
-    for (size_t i = 0; i < base_upper->len; i++) {
-        base_upper->buf[i] = toupper((unsigned char)base_upper->buf[i]);
+    // Scan forward sequentially for the opening brackets
+    while (libpstr.slice.split_once(remaining, "{{", &left, &right) == true) {
+        
+        // 1. Append the normal raw text before the token
+        if (left.len > 0) {
+            libpstr.builder.append(sb, left.ptr, left.len);
+        }
+        
+        // 2. Find the closing brackets
+        libpstr_slice_t token_name, after_token;
+        if (libpstr.slice.split_once(right, "}}", &token_name, &after_token) == true) {
+            
+            // 3. Lookup the token in the provided dictionary
+            bool found = false;
+            for (size_t i = 0; i < num_tokens; i++) {
+                // Safeguard: Check exact length first to prevent "00B" from matching "00BU"
+                if (strlen(tokens[i].key) == token_name.len && 
+                    strncmp(token_name.ptr, tokens[i].key, token_name.len) == 0) {
+                    
+                    if (tokens[i].val != NULL) {
+                        libpstr.builder.append_pstr(sb, tokens[i].val);
+                    }
+                    found = true;
+                    break;
+                }
+            }
+            
+            // 🚨 FAIL-FAST: Unmapped token discovered 🚨
+            if (found == false) {
+                fprintf(stderr, "CGEN ERROR: Unmapped template token '{{%.*s}}' discovered.\n", 
+                        (int)token_name.len, token_name.ptr);
+                return 1; 
+            }
+            
+            // 4. Advance the scanner past the "}}"
+            remaining = after_token;
+        } else {
+            // 🚨 FAIL-FAST: Malformed template syntax 🚨
+            fprintf(stderr, "CGEN ERROR: Malformed template. Found '{{' without closing '}}'.\n");
+            return 2; 
+        }
     }
-
-    // Scan and replace tokens in order of narrowing specificity
-    while (1) {
-        pstr_slice_t match = pstr.builder.find_cstr(sb, "{{00BU}}");
-        if (match.ptr == NULL) break;
-        size_t offset = (size_t)(match.ptr - (char *)sb->vec.data);
-        pstr.builder.replace_range(sb, offset, match.len, base_upper->buf, base_upper->len);
+    
+    // Append any trailing text after the final token substitution
+    if (remaining.len > 0) {
+        libpstr.builder.append(sb, remaining.ptr, remaining.len);
     }
-
-    while (1) {
-        pstr_slice_t match = pstr.builder.find_cstr(sb, "{{00B}}");
-        if (match.ptr == NULL) break;
-        size_t offset = (size_t)(match.ptr - (char *)sb->vec.data);
-        pstr.builder.replace_range(sb, offset, match.len, base_exact->buf, base_exact->len);
-    }
-
-    while (1) {
-        pstr_slice_t match = pstr.builder.find_cstr(sb, "{{00U}}");
-        if (match.ptr == NULL) break;
-        size_t offset = (size_t)(match.ptr - (char *)sb->vec.data);
-        pstr.builder.replace_range(sb, offset, match.len, full_upper->buf, full_upper->len);
-    }
-
-    while (1) {
-        pstr_slice_t match = pstr.builder.find_cstr(sb, "{{00}}");
-        if (match.ptr == NULL) break;
-        size_t offset = (size_t)(match.ptr - (char *)sb->vec.data);
-        pstr.builder.replace_range(sb, offset, match.len, full_exact->buf, full_exact->len);
-    }
-
-    pstr.free(full_exact);
-    pstr.free(full_upper);
-    pstr.free(base_exact);
-    pstr.free(base_upper);
+    
+    return 0; // Success
 }
 
-static bool write_file_clobber(const char *path, pstr_builder_t *sb) {
+bool cgen_write_file(const char *path, libpstr_builder_t *sb) {
+    if (path == NULL || sb == NULL) return false;
+    
     FILE *f = fopen(path, "w");
     if (f == NULL) {
         return false;
@@ -76,18 +84,174 @@ static bool write_file_clobber(const char *path, pstr_builder_t *sb) {
     return true;
 }
 
+
+// =====================================================================
+// LEGACY V1 ENGINE (Untouched for backward compatibility)
+// =====================================================================
+
+libpstr_pstr_t *cgen_generate_filename(libpstr_pstr_t *container, libpstr_pstr_t *type_name) {
+    if (container == NULL || type_name == NULL) return NULL;
+
+    libpstr_builder_t sb;
+    libpstr.builder.init(&sb);
+
+    libpstr.builder.append_pstr(&sb, container);
+    libpstr.builder.append_cstr(&sb, "_");
+    libpstr.builder.append_pstr(&sb, type_name);
+
+    libpstr_pstr_t *generated_name = libpstr.builder.build(&sb);
+    libpstr.builder.cleanup(&sb);
+
+    if (libpstr.pstr.ends_with(type_name, "_t") == true) {
+        if (libpstr.pstr.ends_with(generated_name, "_t") == false) {
+            libpstr.builder.init(&sb);
+            libpstr.builder.append_pstr(&sb, generated_name);
+            libpstr.builder.append_cstr(&sb, "_t");
+            
+            libpstr.pstr.free(generated_name);
+            generated_name = libpstr.builder.build(&sb);
+            libpstr.builder.cleanup(&sb);
+        }
+    }
+
+    libpstr.builder.init(&sb);
+    libpstr.builder.append_pstr(&sb, generated_name);
+    libpstr.builder.append_cstr(&sb, ".c");
+    
+    libpstr.pstr.free(generated_name);
+    generated_name = libpstr.builder.build(&sb);
+    libpstr.builder.cleanup(&sb);
+
+    return generated_name;
+}
+
+static void framework_replace_tokens(libpstr_builder_t *sb, libpstr_pstr_t *replacement) {
+    libpstr_slice_t rep_slice = { .ptr = replacement->buf, .len = replacement->len };
+    libpstr_slice_t base_slice = rep_slice;
+    
+    if (libpstr.slice.ends_with(rep_slice, "_t") == true || libpstr.slice.ends_with(rep_slice, "_T") == true) {
+        base_slice.len -= 2;
+    }
+
+    libpstr_pstr_t *full_exact = libpstr.pstr.from_slice(rep_slice);
+    libpstr_pstr_t *full_upper = libpstr.pstr.from_slice(rep_slice);
+    libpstr.pstr.to_uppercase(full_upper);
+
+    libpstr_pstr_t *base_exact = libpstr.pstr.from_slice(base_slice);
+    libpstr_pstr_t *base_upper = libpstr.pstr.from_slice(base_slice);
+    libpstr.pstr.to_uppercase(base_upper);
+
+    while (1) {
+        libpstr_slice_t match = libpstr.builder.find_cstr(sb, "{{00BU}}");
+        if (match.ptr == NULL) break;
+        size_t offset = (size_t)(match.ptr - (char *)sb->vec.data);
+        libpstr.builder.replace_range(sb, offset, match.len, base_upper->buf, base_upper->len);
+    }
+
+    while (1) {
+        libpstr_slice_t match = libpstr.builder.find_cstr(sb, "{{00B}}");
+        if (match.ptr == NULL) break;
+        size_t offset = (size_t)(match.ptr - (char *)sb->vec.data);
+        libpstr.builder.replace_range(sb, offset, match.len, base_exact->buf, base_exact->len);
+    }
+
+    while (1) {
+        libpstr_slice_t match = libpstr.builder.find_cstr(sb, "{{00U}}");
+        if (match.ptr == NULL) break;
+        size_t offset = (size_t)(match.ptr - (char *)sb->vec.data);
+        libpstr.builder.replace_range(sb, offset, match.len, full_upper->buf, full_upper->len);
+    }
+
+    while (1) {
+        libpstr_slice_t match = libpstr.builder.find_cstr(sb, "{{00}}");
+        if (match.ptr == NULL) break;
+        size_t offset = (size_t)(match.ptr - (char *)sb->vec.data);
+        libpstr.builder.replace_range(sb, offset, match.len, full_exact->buf, full_exact->len);
+    }
+
+    libpstr.pstr.free(full_exact);
+    libpstr.pstr.free(full_upper);
+    libpstr.pstr.free(base_exact);
+    libpstr.pstr.free(base_upper);
+}
+
+static bool write_file_clobber(const char *path, libpstr_builder_t *sb) {
+    FILE *f = fopen(path, "w");
+    if (f == NULL) {
+        return false;
+    }
+    if (sb->vec.len > 0) {
+        fwrite(sb->vec.data, 1, sb->vec.len, f);
+    }
+    fclose(f);
+    return true;
+}
+
+// static bool is_native_type_name(const libpstr_pstr_t* type) {
+//     static const char* builtin[] = {"char", "short", "int", "long", "float", "double", "unsigned", "signed", NULL};
+//     if (type == NULL) {
+//         return false;
+//     }
+//
+//     libpstr_slice_t trimmed = (libpstr_slice_t){ .ptr = type->buf, .len = type->len };
+//     trimmed = libpstr.slice.trim(trimmed);
+//
+//     if (libpstr.slice.starts_with(trimmed, "unsigned ") == true) {
+//         trimmed.ptr += 9;
+//         trimmed.len -= 9;
+//     } else if (libpstr.slice.starts_with(trimmed, "signed ") == true) {
+//         trimmed.ptr += 7;
+//         trimmed.len -= 7;
+//     }
+//
+//     assert(trimmed.len > 0); 
+//
+//     for(size_t n = 0; builtin[n] != NULL; ++n) {
+//         libpstr_slice_t slice = libpstr.slice.find_cstr(type, builtin[n]);
+//         if (slice.ptr != NULL && slice.len == type->len) {
+//             return true;
+//         }
+//     }
+//
+//     return false;
+// }
+
+static libpstr_pstr_t* normalize_type_name(const libpstr_pstr_t *type) {
+    if (type == NULL || type->len == 0) return NULL;
+
+    const char *raw = type->buf;
+    if (strcmp(raw, "unsigned int") == 0)   return libpstr.pstr.from_cstr("uint");
+    if (strcmp(raw, "unsigned long") == 0)  return libpstr.pstr.from_cstr("ulong");
+    if (strcmp(raw, "unsigned char") == 0)  return libpstr.pstr.from_cstr("uchar");
+    if (strcmp(raw, "unsigned short") == 0) return libpstr.pstr.from_cstr("ushort");
+    if (strcmp(raw, "signed char") == 0)    return libpstr.pstr.from_cstr("schar");
+    if (strcmp(raw, "long long") == 0)      return libpstr.pstr.from_cstr("llong");
+    if (strcmp(raw, "long double") == 0)    return libpstr.pstr.from_cstr("ldouble");
+
+    libpstr_pstr_t *safe_name = libpstr.pstr.from_cstr(raw);
+    for (size_t i = 0; i < safe_name->len; i++) {
+        char c = safe_name->buf[i];
+        if (c == ' ') {
+            safe_name->buf[i] = '_';
+        } else if (c == '*') {
+            safe_name->buf[i] = 'p'; 
+        }
+    }
+    return safe_name;
+}
+
 int cgen_app_run(const cgen_app_def_t *app, int argc, char **argv) {
     cgen_opt_t schema[3];
-    schema[0] = cgen_opt_new((pstr_slice_t){.ptr = (char*)app->opt_spec, .len = strlen(app->opt_spec)});
-    schema[1] = cgen_opt_new((pstr_slice_t){.ptr = "=oout-dir", .len = 9});
-    schema[2] = cgen_opt_new((pstr_slice_t){.ptr = "-hhelp", .len = 6}); // Registered global help context
+    schema[0] = cgen_opt_new((libpstr_slice_t){.ptr = app->opt_spec, .len = strlen(app->opt_spec)});
+    schema[1] = cgen_opt_new((libpstr_slice_t){.ptr = "=oout-dir", .len = 9});
+    schema[2] = cgen_opt_new((libpstr_slice_t){.ptr = "-hhelp", .len = 6});
 
     cgen_parser_t parser;
     cgen_parser_init(&parser, argc, argv, schema, 3);
 
-    pstr_t *parsed_option_0 = NULL;
-    pstr_t *parsed_argument_0 = NULL;
-    pstr_t *out_dir = NULL;
+    libpstr_pstr_t *parsed_option_0 = NULL;
+    libpstr_pstr_t *parsed_argument_0 = NULL;
+    libpstr_pstr_t *out_dir = NULL;
 
     cgen_parse_result_t res;
     while ((res = cgen_parser_next(&parser)).kind != CGEN_PARSE_NONE) {
@@ -95,9 +259,9 @@ int cgen_app_run(const cgen_app_def_t *app, int argc, char **argv) {
             fprintf(stderr, "Error: %s\n", res.as.error.msg->buf);
             cgen_parse_result_free(res);
             cgen_parser_cleanup(&parser);
-            if (parsed_option_0 == NULL) pstr.free(parsed_option_0);
-            if (parsed_argument_0 == NULL) pstr.free(parsed_argument_0);
-            if (out_dir == NULL) pstr.free(out_dir);
+            if (parsed_option_0 != NULL) libpstr.pstr.free(parsed_option_0);
+            if (parsed_argument_0 != NULL) libpstr.pstr.free(parsed_argument_0);
+            if (out_dir != NULL) libpstr.pstr.free(out_dir);
             return 1;
         }
 
@@ -111,22 +275,27 @@ int cgen_app_run(const cgen_app_def_t *app, int argc, char **argv) {
 
                 cgen_parse_result_free(res);
                 cgen_parser_cleanup(&parser);
-                if (parsed_option_0 != NULL) pstr.free(parsed_option_0);
-                if (parsed_argument_0 != NULL) pstr.free(parsed_argument_0);
-                if (out_dir != NULL) pstr.free(out_dir);
+                if (parsed_option_0 != NULL) libpstr.pstr.free(parsed_option_0);
+                if (parsed_argument_0 != NULL) libpstr.pstr.free(parsed_argument_0);
+                if (out_dir != NULL) libpstr.pstr.free(out_dir);
                 return 0;
             }
             else if (cgen_opt_short_name(res.as.option.opt) == 'o') {
-                if (out_dir != NULL) pstr.free(out_dir);
+                if (res.as.option.arg == NULL) {
+                    fprintf(stderr, "Error: Option -o requires an argument.\n");
+                    exit(EXIT_FAILURE);
+                }
+                
+                if (res.as.option.arg->len == 0) {
+                    fprintf(stderr, "Error: Output directory cannot be empty.\n");
+                    exit(EXIT_FAILURE);
+                }
+
+                if (out_dir != NULL) libpstr.pstr.free(out_dir);
                 out_dir = res.as.option.arg;
                 res.as.option.arg = NULL;
-            } else {
-                if (parsed_option_0 != NULL) pstr.free(parsed_option_0);
-                parsed_option_0 = res.as.option.arg;
-                res.as.option.arg = NULL;
-            }
-        } 
-        else if (res.kind == CGEN_PARSE_NON_OPTION_ARG) {
+            } 
+        } else if (res.kind == CGEN_PARSE_NON_OPTION_ARG) {
             if (parsed_argument_0 == NULL) {
                 parsed_argument_0 = res.as.non_option_arg;
                 res.as.non_option_arg = NULL;
@@ -135,7 +304,7 @@ int cgen_app_run(const cgen_app_def_t *app, int argc, char **argv) {
         cgen_parse_result_free(res);
     }
 
-    pstr_t *replacement = parsed_option_0;
+    libpstr_pstr_t *replacement = parsed_option_0;
     if (replacement == NULL || replacement->len == 0) {
         replacement = parsed_argument_0;
     }
@@ -143,41 +312,75 @@ int cgen_app_run(const cgen_app_def_t *app, int argc, char **argv) {
     if (replacement == NULL || replacement->len == 0) {
         fprintf(stderr, "Error: Missing target type name specification.\n");
         cgen_parser_cleanup(&parser);
-        if (out_dir != NULL) pstr.free(out_dir);
+        if (out_dir != NULL) libpstr.pstr.free(out_dir);
         return 1;
     }
 
-    pstr_t *base_path = NULL;
+    //bool native_type = is_native_type_name(replacement);
+    libpstr_pstr_t *safe_replacement = normalize_type_name(replacement);
+    libpstr_pstr_t *base_path = NULL;
+
     if (out_dir != NULL && out_dir->len > 0) {
         if (out_dir->buf[out_dir->len - 1] == '/') {
-            base_path = pstr_format("%s", out_dir->buf);
+            base_path = libpstr.pstr.format("%s", out_dir->buf);
         } else {
-            base_path = pstr_format("%s/", out_dir->buf);
+            base_path = libpstr.pstr.format("%s/", out_dir->buf);
         }
     } else {
-        base_path = pstr_from_cstr("");
+        base_path = libpstr.pstr.from_cstr("");
     }
 
-    size_t file_base_len = replacement->len;
-    if (replacement->len > 2 && 
-        replacement->buf[replacement->len - 2] == '_' && 
-        (replacement->buf[replacement->len - 1] == 't' || replacement->buf[replacement->len - 1] == 'T')) {
-        file_base_len = replacement->len - 2;
+    // 1. Generate the 4 token variants just like before
+    libpstr_slice_t rep_slice = { .ptr = safe_replacement->buf, .len = safe_replacement->len };
+    libpstr_slice_t base_slice = rep_slice;
+    
+    if (libpstr.slice.ends_with(rep_slice, "_t") == true || libpstr.slice.ends_with(rep_slice, "_T") == true) {
+        base_slice.len -= 2;
     }
 
-    // Generate Header asset using base naming structures
-    pstr_builder_t sb_h;
-    pstr.builder.init(&sb_h);
-    pstr.builder.append_cstr(&sb_h, app->template_h);
-    framework_replace_tokens(&sb_h, replacement);
-    pstr_t *path_h = pstr_format("%s%s_%.*s.h", base_path->buf, app->subcommand_name, (int)file_base_len, replacement->buf);
+    libpstr_pstr_t *full_exact = libpstr.pstr.from_slice(rep_slice);
+    libpstr_pstr_t *full_upper = libpstr.pstr.from_slice(rep_slice);
+    libpstr.pstr.to_uppercase(full_upper);
 
-    // Generate Source Implementation asset using base naming structures
-    pstr_builder_t sb_c;
-    pstr.builder.init(&sb_c);
-    pstr.builder.append_cstr(&sb_c, app->template_c);
-    framework_replace_tokens(&sb_c, replacement);
-    pstr_t *path_c = pstr_format("%s%s_%.*s.c", base_path->buf, app->subcommand_name, (int)file_base_len, replacement->buf);
+    libpstr_pstr_t *base_exact = libpstr.pstr.from_slice(base_slice);
+    libpstr_pstr_t *base_upper = libpstr.pstr.from_slice(base_slice);
+    libpstr.pstr.to_uppercase(base_upper);
+
+    // 2. ⚡ DEFINE THE TOKEN MAP FOR SINGLE-TYPE TOOLS ⚡
+    cgen_token_t tokens[4] = {
+        { "00",   full_exact },
+        { "00U",  full_upper },
+        { "00B",  base_exact },
+        { "00BU", base_upper }
+    };
+
+    // 3. Render the Header
+    libpstr_builder_t sb_h;
+    libpstr.builder.init(&sb_h);
+    libpstr_slice_t tmpl_h = { .ptr = app->template_h, .len = strlen(app->template_h) };
+    
+    if (cgen_render_block(&sb_h, tmpl_h, tokens, 4) != 0) {
+        fprintf(stderr, "Fatal error rendering header template.\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    libpstr_pstr_t *path_h = libpstr.pstr.format("%s%s_%s.h", base_path->buf, app->subcommand_name, safe_replacement->buf);
+
+    // 4. Render the Source
+    libpstr_builder_t sb_c;
+    libpstr.builder.init(&sb_c);
+    
+    if (app->template_c == NULL) {
+        fprintf(stderr, "Critical: Missing template_c definition.\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    libpstr_slice_t tmpl_c = { .ptr = app->template_c, .len = strlen(app->template_c) };
+    if (cgen_render_block(&sb_c, tmpl_c, tokens, 4) != 0) {
+        fprintf(stderr, "Fatal error rendering source template.\n");
+        exit(EXIT_FAILURE);
+    }
+    libpstr_pstr_t *path_c = libpstr.pstr.format("%s%s_%s.c", base_path->buf, app->subcommand_name, safe_replacement->buf);
 
     if (write_file_clobber(path_h->buf, &sb_h) == false) {
         fprintf(stderr, "Error: Failed to write file to disk at destination: %s\n", path_h->buf);
@@ -186,78 +389,85 @@ int cgen_app_run(const cgen_app_def_t *app, int argc, char **argv) {
         fprintf(stderr, "Error: Failed to write file to disk at destination: %s\n", path_c->buf);
     }
 
-    pstr.builder.cleanup(&sb_h);
-    pstr.builder.cleanup(&sb_c);
-    pstr.free(path_h);
-    pstr.free(path_c);
-    pstr.free(base_path);
-    if (parsed_option_0 != NULL) pstr.free(parsed_option_0);
-    if (parsed_argument_0 != NULL) pstr.free(parsed_argument_0);
-    if (out_dir != NULL) pstr.free(out_dir);
+    libpstr.pstr.free(full_exact);
+    libpstr.pstr.free(full_upper);
+    libpstr.pstr.free(base_exact);
+    libpstr.pstr.free(base_upper);
+    libpstr.builder.cleanup(&sb_h);
+    libpstr.builder.cleanup(&sb_c);
+    libpstr.pstr.free(path_h);
+    libpstr.pstr.free(path_c);
+    libpstr.pstr.free(base_path);
+    
+    libpstr.pstr.free(safe_replacement); 
+    
+    if (parsed_option_0 != NULL) libpstr.pstr.free(parsed_option_0);
+    if (parsed_argument_0 != NULL) libpstr.pstr.free(parsed_argument_0);
+    if (out_dir != NULL) libpstr.pstr.free(out_dir);
     cgen_parser_cleanup(&parser);
 
     return 0;
 }
 
-static void framework_replace_string(pstr_builder_t *sb, const char *token, const char *rep, size_t rep_len) {
+static void framework_replace_string(libpstr_builder_t *sb, const char *token, const char *rep, size_t rep_len) {
     while (1) {
-        pstr_slice_t match = pstr.builder.find_cstr(sb, token);
+        libpstr_slice_t match = libpstr.builder.find_cstr(sb, token);
         if (match.ptr == NULL) break;
         size_t offset = (size_t)(match.ptr - (char *)sb->vec.data);
-        pstr.builder.replace_range(sb, offset, match.len, rep, rep_len);
+        libpstr.builder.replace_range(sb, offset, match.len, rep, rep_len);
     }
 }
 
-static void framework_expand_dual_tokens(pstr_builder_t *sb, const char *type_name, const char *t_full, const char *t_full_u, const char *t_base, const char *t_base_u) {
-    size_t len = strlen(type_name);
-    size_t base_len = len;
-    if (len > 2 && type_name[len - 2] == '_' && (type_name[len - 1] == 't' || type_name[len - 1] == 'T')) {
-        base_len = len - 2;
+static void framework_expand_dual_tokens(libpstr_builder_t *sb, const char *type_name, const char *t_full, const char *t_full_u, const char *t_base, const char *t_base_u) {
+    libpstr_slice_t rep_slice = { .ptr = type_name, .len = strlen(type_name) };
+    libpstr_slice_t base_slice = rep_slice;
+    
+    if (libpstr.slice.ends_with(rep_slice, "_t") == true || libpstr.slice.ends_with(rep_slice, "_T") == true) {
+        base_slice.len -= 2;
     }
 
-    pstr_t *full_exact = pstr_format("%s", type_name);
-    pstr_t *full_upper = pstr_format("%s", type_name);
-    for (size_t i = 0; i < full_upper->len; i++) full_upper->buf[i] = toupper((unsigned char)full_upper->buf[i]);
+    libpstr_pstr_t *full_exact = libpstr.pstr.from_slice(rep_slice);
+    libpstr_pstr_t *full_upper = libpstr.pstr.from_slice(rep_slice);
+    libpstr.pstr.to_uppercase(full_upper);
 
-    pstr_t *base_exact = pstr_format("%.*s", (int)base_len, type_name);
-    pstr_t *base_upper = pstr_format("%.*s", (int)base_len, type_name);
-    for (size_t i = 0; i < base_upper->len; i++) base_upper->buf[i] = toupper((unsigned char)base_upper->buf[i]);
+    libpstr_pstr_t *base_exact = libpstr.pstr.from_slice(base_slice);
+    libpstr_pstr_t *base_upper = libpstr.pstr.from_slice(base_slice);
+    libpstr.pstr.to_uppercase(base_upper);
 
     framework_replace_string(sb, t_base_u, base_upper->buf, base_upper->len);
     framework_replace_string(sb, t_base, base_exact->buf, base_exact->len);
     framework_replace_string(sb, t_full_u, full_upper->buf, full_upper->len);
     framework_replace_string(sb, t_full, full_exact->buf, full_exact->len);
 
-    pstr.free(full_exact); pstr.free(full_upper);
-    pstr.free(base_exact); pstr.free(base_upper);
+    libpstr.pstr.free(full_exact); 
+    libpstr.pstr.free(full_upper);
+    libpstr.pstr.free(base_exact); 
+    libpstr.pstr.free(base_upper);
 }
 
 int cgen_app_run_dual(const cgen_app_dual_def_t *app, int argc, char **argv) {
-    // 1. Register identical framework option schemas
     cgen_opt_t schema[2];
-    schema[0] = cgen_opt_new((pstr_slice_t){.ptr = "=oout-dir", .len = 9});
-    schema[1] = cgen_opt_new((pstr_slice_t){.ptr = "-hhelp", .len = 6});
+    schema[0] = cgen_opt_new((libpstr_slice_t){.ptr = "=oout-dir", .len = 9});
+    schema[1] = cgen_opt_new((libpstr_slice_t){.ptr = "-hhelp", .len = 6});
 
     cgen_parser_t parser;
     cgen_parser_init(&parser, argc, argv, schema, 2);
 
-    pstr_t *out_dir = NULL;
-    pstr_t *parsed_key = NULL;
-    pstr_t *parsed_val = NULL;
+    libpstr_pstr_t *out_dir = NULL;
+    libpstr_pstr_t *parsed_key = NULL;
+    libpstr_pstr_t *parsed_val = NULL;
 
-    // 2. Drive argument streams through the state-machine parser
     cgen_parse_result_t res;
     while ((res = cgen_parser_next(&parser)).kind != CGEN_PARSE_NONE) {
         if (res.kind == CGEN_PARSE_ERR) {
             fprintf(stderr, "Error: %s\n", res.as.error.msg->buf);
             cgen_parse_result_free(res);
             cgen_parser_cleanup(&parser);
-            if (out_dir) pstr.free(out_dir);
-            if (parsed_key) pstr.free(parsed_key);
-            if (parsed_val) pstr.free(parsed_val);
+            if (out_dir != NULL) libpstr.pstr.free(out_dir);
+            if (parsed_key != NULL) libpstr.pstr.free(parsed_key);
+            if (parsed_val != NULL) libpstr.pstr.free(parsed_val);
             return 1;
         }
-
         if (res.kind == CGEN_PARSE_OPTION) {
             if (cgen_opt_short_name(res.as.option.opt) == 'h') {
                 printf("Usage: cgen %s [options] <key_type> <value_type>\n\n", app->subcommand_name);
@@ -267,19 +477,25 @@ int cgen_app_run_dual(const cgen_app_dual_def_t *app, int argc, char **argv) {
 
                 cgen_parse_result_free(res);
                 cgen_parser_cleanup(&parser);
-                if (out_dir) pstr.free(out_dir);
-                if (parsed_key) pstr.free(parsed_key);
-                if (parsed_val) pstr.free(parsed_val);
+                if (out_dir != NULL) libpstr.pstr.free(out_dir);
+                if (parsed_key != NULL) libpstr.pstr.free(parsed_key);
+                if (parsed_val != NULL) libpstr.pstr.free(parsed_val);
                 return 0;
-            }
-            else if (cgen_opt_short_name(res.as.option.opt) == 'o') {
-                if (out_dir) pstr.free(out_dir);
+            } else if (cgen_opt_short_name(res.as.option.opt) == 'o') {
+                if (res.as.option.arg == NULL) {
+                    fprintf(stderr, "Error: Option -o requires an argument.\n");
+                    exit(EXIT_FAILURE);
+                }
+                if (res.as.option.arg->len == 0) {
+                    fprintf(stderr, "Error: Output directory cannot be empty.\n");
+                    exit(EXIT_FAILURE);
+                }
+
+                if (out_dir != NULL) libpstr.pstr.free(out_dir);
                 out_dir = res.as.option.arg;
                 res.as.option.arg = NULL;
-            }
-        } 
-        else if (res.kind == CGEN_PARSE_NON_OPTION_ARG) {
-            // Sequentially collect the two required positional arguments
+            } 
+        } else if (res.kind == CGEN_PARSE_NON_OPTION_ARG) {
             if (parsed_key == NULL) {
                 parsed_key = res.as.non_option_arg;
                 res.as.non_option_arg = NULL;
@@ -291,66 +507,133 @@ int cgen_app_run_dual(const cgen_app_dual_def_t *app, int argc, char **argv) {
         cgen_parse_result_free(res);
     }
 
-    // 3. Enforce structural validation constraints
     if (parsed_key == NULL || parsed_key->len == 0 || parsed_val == NULL || parsed_val->len == 0) {
         fprintf(stderr, "Error: Missing target <key_type> or <value_type> specification.\n");
         cgen_parser_cleanup(&parser);
-        if (out_dir) pstr.free(out_dir);
-        if (parsed_key) pstr.free(parsed_key);
-        if (parsed_val) pstr.free(parsed_val);
+        if (out_dir != NULL) libpstr.pstr.free(out_dir);
+        if (parsed_key != NULL) libpstr.pstr.free(parsed_key);
+        if (parsed_val != NULL) libpstr.pstr.free(parsed_val);
         return 1;
     }
 
-    // 4. Resolve sandboxed base directories cleanly
-    pstr_t *base_path = NULL;
+    libpstr_pstr_t *base_path = NULL;
     if (out_dir != NULL && out_dir->len > 0) {
         if (out_dir->buf[out_dir->len - 1] == '/') {
-            base_path = pstr_format("%s", out_dir->buf);
+            base_path = libpstr.pstr.format("%s", out_dir->buf);
         } else {
-            base_path = pstr_format("%s/", out_dir->buf);
+            base_path = libpstr.pstr.format("%s/", out_dir->buf);
         }
     } else {
-        base_path = pstr_from_cstr("");
+        base_path = libpstr.pstr.from_cstr("");
+    }
+    
+    libpstr_pstr_t *safe_key = normalize_type_name(parsed_key);
+    libpstr_pstr_t *safe_val = normalize_type_name(parsed_val);
+
+    // =========================================================================
+    // V2 ENGINE: Token Map Generation
+    // =========================================================================
+
+    // 1. Generate KEY variants
+    libpstr_slice_t k_rep_slice = { .ptr = safe_key->buf, .len = safe_key->len };
+    libpstr_slice_t k_base_slice = k_rep_slice;
+    if (libpstr.slice.ends_with(k_rep_slice, "_t") == true || libpstr.slice.ends_with(k_rep_slice, "_T") == true) {
+        k_base_slice.len -= 2;
+    }
+    libpstr_pstr_t *k_full_exact = libpstr.pstr.from_slice(k_rep_slice);
+    libpstr_pstr_t *k_full_upper = libpstr.pstr.from_slice(k_rep_slice);
+    libpstr.pstr.to_uppercase(k_full_upper);
+    libpstr_pstr_t *k_base_exact = libpstr.pstr.from_slice(k_base_slice);
+    libpstr_pstr_t *k_base_upper = libpstr.pstr.from_slice(k_base_slice);
+    libpstr.pstr.to_uppercase(k_base_upper);
+
+    // 2. Generate VAL variants
+    libpstr_slice_t v_rep_slice = { .ptr = safe_val->buf, .len = safe_val->len };
+    libpstr_slice_t v_base_slice = v_rep_slice;
+    if (libpstr.slice.ends_with(v_rep_slice, "_t") == true || libpstr.slice.ends_with(v_rep_slice, "_T") == true) {
+        v_base_slice.len -= 2;
+    }
+    libpstr_pstr_t *v_full_exact = libpstr.pstr.from_slice(v_rep_slice);
+    libpstr_pstr_t *v_full_upper = libpstr.pstr.from_slice(v_rep_slice);
+    libpstr.pstr.to_uppercase(v_full_upper);
+    libpstr_pstr_t *v_base_exact = libpstr.pstr.from_slice(v_base_slice);
+    libpstr_pstr_t *v_base_upper = libpstr.pstr.from_slice(v_base_slice);
+    libpstr.pstr.to_uppercase(v_base_upper);
+
+    // 3. Map the Tokens
+    cgen_token_t tokens[8] = {
+        { "KEY",    k_full_exact },
+        { "KEY_U",  k_full_upper },
+        { "KEY_B",  k_base_exact },
+        { "KEY_BU", k_base_upper },
+        { "VAL",    v_full_exact },
+        { "VAL_U",  v_full_upper },
+        { "VAL_B",  v_base_exact },
+        { "VAL_BU", v_base_upper }
+    };
+
+    // =========================================================================
+    // V2 ENGINE: Rendering
+    // =========================================================================
+
+    libpstr_pstr_t *path_h = libpstr.pstr.format("%s%s_%s_%s.h", base_path->buf, app->subcommand_name, safe_key->buf, safe_val->buf);
+    libpstr_pstr_t *path_c = libpstr.pstr.format("%s%s_%s_%s.c", base_path->buf, app->subcommand_name, safe_key->buf, safe_val->buf);
+
+    // Render Header
+    libpstr_builder_t sb_h; 
+    libpstr.builder.init(&sb_h);
+    libpstr_slice_t tmpl_h = { .ptr = app->template_h, .len = strlen(app->template_h) };
+    if (cgen_render_block(&sb_h, tmpl_h, tokens, 8) != 0) {
+        fprintf(stderr, "Fatal error rendering header template for dual-type container.\n");
+        exit(EXIT_FAILURE);
     }
 
-    // Extract length boundaries stripping standard _t prefixes if they exist
-    size_t k_len = parsed_key->len;
-    if (k_len > 2 && parsed_key->buf[k_len - 2] == '_' && (parsed_key->buf[k_len - 1] == 't' || parsed_key->buf[k_len - 1] == 'T')) k_len -= 2;
-    
-    size_t v_len = parsed_val->len;
-    if (v_len > 2 && parsed_val->buf[v_len - 2] == '_' && (parsed_val->buf[v_len - 1] == 't' || parsed_val->buf[v_len - 1] == 'T')) v_len -= 2;
+    // Render Source
+    libpstr_builder_t sb_c; 
+    libpstr.builder.init(&sb_c);
+    if (app->template_c == NULL) {
+        fprintf(stderr, "Critical: Missing template_c definition for dual-type container.\n");
+        exit(EXIT_FAILURE);
+    }
+    libpstr_slice_t tmpl_c = { .ptr = app->template_c, .len = strlen(app->template_c) };
+    if (cgen_render_block(&sb_c, tmpl_c, tokens, 8) != 0) {
+        fprintf(stderr, "Fatal error rendering source template for dual-type container.\n");
+        exit(EXIT_FAILURE);
+    }
 
-    // 5. Construct final sandboxed file generation paths
-    pstr_t *path_h = pstr_format("%s%s_%.*s_%.*s.h", base_path->buf, app->subcommand_name, (int)k_len, parsed_key->buf, (int)v_len, parsed_val->buf);
-    pstr_t *path_c = pstr_format("%s%s_%.*s_%.*s.c", base_path->buf, app->subcommand_name, (int)k_len, parsed_key->buf, (int)v_len, parsed_val->buf);
-
-    // 6. Generate outputs running precise dual-token substitutions
-    pstr_builder_t sb_h; pstr.builder.init(&sb_h);
-    pstr.builder.append_cstr(&sb_h, app->template_h);
-    framework_expand_dual_tokens(&sb_h, parsed_key->buf, "{{KEY}}", "{{KEY_U}}", "{{KEY_B}}", "{{KEY_BU}}");
-    framework_expand_dual_tokens(&sb_h, parsed_val->buf, "{{VAL}}", "{{VAL_U}}", "{{VAL_B}}", "{{VAL_BU}}");
-
-    pstr_builder_t sb_c; pstr.builder.init(&sb_c);
-    pstr.builder.append_cstr(&sb_c, app->template_c);
-    framework_expand_dual_tokens(&sb_c, parsed_key->buf, "{{KEY}}", "{{KEY_U}}", "{{KEY_B}}", "{{KEY_BU}}");
-    framework_expand_dual_tokens(&sb_c, parsed_val->buf, "{{VAL}}", "{{VAL_U}}", "{{VAL_B}}", "{{VAL_BU}}");
-
-    if (write_file_clobber(path_h->buf, &sb_h) == false) {
+    // Write to Disk
+    if (cgen_write_file(path_h->buf, &sb_h) == false) {
         fprintf(stderr, "Error: Failed writing file to destination: %s\n", path_h->buf);
     }
-    if (write_file_clobber(path_c->buf, &sb_c) == false) {
+    if (cgen_write_file(path_c->buf, &sb_c) == false) {
         fprintf(stderr, "Error: Failed writing file to destination: %s\n", path_c->buf);
     }
 
-    // 7. Resource deallocations teardown
-    pstr.builder.cleanup(&sb_h); 
-    pstr.builder.cleanup(&sb_c);
-    pstr.free(path_h); 
-    pstr.free(path_c);
-    pstr.free(base_path);
-    pstr.free(parsed_key);
-    pstr.free(parsed_val);
-    if (out_dir) pstr.free(out_dir);
+    // =========================================================================
+    // Manual Garbage Collection
+    // =========================================================================
+
+    libpstr.builder.cleanup(&sb_h); 
+    libpstr.builder.cleanup(&sb_c);
+    libpstr.pstr.free(path_h); 
+    libpstr.pstr.free(path_c);
+    libpstr.pstr.free(base_path);
+    libpstr.pstr.free(safe_key);
+    libpstr.pstr.free(safe_val);
+    libpstr.pstr.free(parsed_key);
+    libpstr.pstr.free(parsed_val);
+    if (out_dir != NULL) libpstr.pstr.free(out_dir);
+
+    // Free the 8 token mapped strings!
+    libpstr.pstr.free(k_full_exact);
+    libpstr.pstr.free(k_full_upper);
+    libpstr.pstr.free(k_base_exact);
+    libpstr.pstr.free(k_base_upper);
+    libpstr.pstr.free(v_full_exact);
+    libpstr.pstr.free(v_full_upper);
+    libpstr.pstr.free(v_base_exact);
+    libpstr.pstr.free(v_base_upper);
+
     cgen_parser_cleanup(&parser);
 
     return 0;

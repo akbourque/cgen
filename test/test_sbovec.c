@@ -7,7 +7,7 @@ char *strdup(const char *s);
 void free_custom_element(custom_t *element);
 
 #include "sbovec_int.h"
-#include "sbovec_custom.h"
+#include "sbovec_custom_t.h"
 
 void test_sbovec_primitive(void) {
     sbovec_int_t v;

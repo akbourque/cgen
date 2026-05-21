@@ -10,8 +10,8 @@ void free_custom_element(custom_t *element);
 #include <string.h>
 
 #include "map_int_int.h"
-#include "map_int_custom.h"
-#include "map_iter_int_custom.h"
+#include "map_int_custom_t.h"
+#include "map_iter_int_custom_t.h"
 
 char* strdup(const char*);
 /**

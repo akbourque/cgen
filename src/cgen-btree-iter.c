@@ -10,7 +10,7 @@ const char *BTREE_ITER_TEMPLATE_H =
     "#pragma once\n"
     "#ifndef BTREE_ITER_{{KEY_BU}}_{{VAL_BU}}_H\n"
     "#define BTREE_ITER_{{KEY_BU}}_{{VAL_BU}}_H\n\n"
-    "#include \"btree_{{KEY_B}}_{{VAL_B}}.h\"\n"
+    "#include \"btree_{{KEY}}_{{VAL}}.h\"\n"
     "#include <stdbool.h>\n"
     "#include <stddef.h>\n\n"
     "#define BTREE_ITER_MAX_DEPTH 64\n\n"
@@ -52,7 +52,8 @@ const char *BTREE_ITER_TEMPLATE_H =
 
 // --- B-Tree Iterator Implementation Template ---
 const char *BTREE_ITER_TEMPLATE_C =
-    "#include \"btree_iter_{{KEY_B}}_{{VAL_B}}.h\"\n"
+    "#include \"btree_iter_{{KEY}}_{{VAL}}.h\"\n"
+    "#include <libpstr.h>\n"
     "#include <stdlib.h>\n"
     "#include <assert.h>\n\n"
     "static void push_leftmost_path(btree_iter_{{KEY_B}}_{{VAL_B}}_t *iter, const btree_{{KEY_B}}_{{VAL_B}}_node_t *node) {\n"

@@ -94,7 +94,7 @@ const char *SBOVEC_TEMPLATE_H =
 
 // --- SBO Vector Implementation Template ---
 const char *SBOVEC_TEMPLATE_C = 
-    "#include \"sbovec_{{00B}}.h\"\n"
+    "#include \"sbovec_{{00}}.h\"\n"
     "#include <stdlib.h>\n\n"
     "void sbovec_{{00B}}_init(sbovec_{{00B}}_t *v) {\n"
     "    v->data = NULL;\n"
@@ -194,7 +194,7 @@ int main(int argc, char **argv) {
         .subcommand_name = "sbovec",
         .opt_spec        = "=ttypename",
         .template_h      = SBOVEC_TEMPLATE_H,
-        .template_c      = SBOVEC_TEMPLATE_C
+        .template_c      = SBOVEC_TEMPLATE_C,
     };
 
     return cgen_app_run(&app, argc - 1, argv + 1);

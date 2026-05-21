@@ -84,7 +84,7 @@ const char *RING_TEMPLATE_H =
 // ============================================================================
 const char *RING_TEMPLATE_C =
     "#include <stdlib.h>\n"
-    "#include \"ring_{{00B}}.h\"\n\n"
+    "#include \"ring_{{00}}.h\"\n\n"
     
     "void ring_{{00B}}_init(ring_{{00B}}_t *r, size_t capacity) {\n"
     "    if (r == NULL) return;\n"
@@ -150,7 +150,7 @@ int main(int argc, char **argv) {
         .subcommand_name = "ring",
         .opt_spec        = "=ttypename",
         .template_h      = RING_TEMPLATE_H,
-        .template_c      = RING_TEMPLATE_C
+        .template_c      = RING_TEMPLATE_C,
     };
 
     // Forward parsing configurations down to the shared engine framework

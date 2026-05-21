@@ -6,7 +6,7 @@
 char *strdup(const char *s);
 void free_custom_element(custom_t *element);
 #include "option_int.h"
-#include "option_custom.h"
+#include "option_custom_t.h"
 
 void test_option_primitive(void) {
     option_int_t o1 = option_int_none();

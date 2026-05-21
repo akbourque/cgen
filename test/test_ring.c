@@ -6,7 +6,7 @@
 char *strdup(const char *s);
 void free_custom_element(custom_t *element);
 #include "ring_int.h"
-#include "ring_custom.h"
+#include "ring_custom_t.h"
 
 void test_ring_primitive(void) {
     ring_int_t r;
