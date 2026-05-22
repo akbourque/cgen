@@ -23,11 +23,13 @@ void run_option_tests();
 void run_ring_tests();
 void run_pqueue_tests();
 void run_variant_tests();
+void run_parser_tests();
 
 int main(void) {
     printf("Executing automated validation suites...\n");
 
     // Route execution down to modular testing files cleanly
+    run_parser_tests();
     run_vec_tests();
     run_sbovec_tests();
     run_map_tests();
@@ -37,6 +39,7 @@ int main(void) {
     run_ring_tests();
     run_pqueue_tests();
     run_variant_tests();
+
     return 0;
 }
- 
+

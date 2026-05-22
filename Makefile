@@ -1,161 +1,125 @@
 # ============================================================================
 # CGEN MASTER MAKEFILE CONFIGURATION
 # ============================================================================
-VERSION = 0.1.1
+VERSION = 0.1.2
 
 CC = gcc
-# Clean CFLAGS: Strict compiler tuning flags and include paths only!
+# Localized PATH ensures generated assets use the locally built cgen tools
+export PATH := .:$(PATH)
+
 CFLAGS = -Wall -Wextra -std=c11 -O2 -DCGEN_VERSION=\"$(VERSION)\" -Isrc -I../libpstr/src
+TEST_CFLAGS = -Wall -Wextra -std=c11 -g -DENABLE_PANIC_TESTING -include mock_struct.h -Isrc -I../libpstr/src -Itest -I$(TEST_GEN_DIR)
 
-TARGET = cgen
-
-# Path to our peer library static archive dependency
 LIBPSTR_A = ../libpstr/libpstr.a
-
-# Framework sources relocated into the src/ folder
+TEST_GEN_DIR = test/generated
 FRAMEWORK_SRCS = src/opt.c src/parser.c src/cgen_framework.c
 FRAMEWORK_OBJS = $(FRAMEWORK_SRCS:.c=.o)
 
-.PHONY: all clean test clean_test
+ASSETS = $(TEST_GEN_DIR)/vec_int.c $(TEST_GEN_DIR)/vec_custom_t.c \
+         $(TEST_GEN_DIR)/sbovec_int.c $(TEST_GEN_DIR)/sbovec_custom_t.c \
+         $(TEST_GEN_DIR)/map_int_int.c $(TEST_GEN_DIR)/map_int_custom_t.c \
+         $(TEST_GEN_DIR)/map_iter_int_custom_t.c \
+         $(TEST_GEN_DIR)/btree_int_int.c $(TEST_GEN_DIR)/btree_int_custom_t.c \
+         $(TEST_GEN_DIR)/btree_iter_int_custom_t.c \
+         $(TEST_GEN_DIR)/result_int_int.c $(TEST_GEN_DIR)/result_int_custom_t.c \
+         $(TEST_GEN_DIR)/option_int.c $(TEST_GEN_DIR)/option_custom_t.c \
+         $(TEST_GEN_DIR)/ring_int.c $(TEST_GEN_DIR)/ring_custom_t.c \
+         $(TEST_GEN_DIR)/pqueue_int.c $(TEST_GEN_DIR)/pqueue_custom_t.c \
+         $(TEST_GEN_DIR)/sample_t.c
+
+.PHONY: all clean test
 
 all: cgen cgen-vec cgen-sbovec cgen-map cgen-ring cgen-pqueue cgen-option cgen-result cgen-btree \
 	cgen-variant cgen-map-iter cgen-btree-iter
 
-# Automated trigger rule to build the peer library archive if it doesn't exist
 $(LIBPSTR_A):
 	$(MAKE) -C ../libpstr static
 
-# Central driver orchestrator
-cgen: src/main.o $(LIBPSTR_A)
-	$(CC) $(CFLAGS) src/main.o $(LIBPSTR_A) -o $@
+# Explicit target for the main cgen driver
+cgen: src/bin/cgen.o $(LIBPSTR_A)
+	$(CC) $(CFLAGS) src/bin/cgen.o $(LIBPSTR_A) -o $@
 
-# Standard dynamic array generator
-cgen-vec: src/cgen-vec.o $(FRAMEWORK_OBJS) $(LIBPSTR_A)
+cgen-vec: src/bin/cgen-vec.o $(FRAMEWORK_OBJS) $(LIBPSTR_A)
 	$(CC) $(CFLAGS) $^ -o $@
 
-# Small-buffer optimized array generator
-cgen-sbovec: src/cgen-sbovec.o $(FRAMEWORK_OBJS) $(LIBPSTR_A)
+cgen-sbovec: src/bin/cgen-sbovec.o $(FRAMEWORK_OBJS) $(LIBPSTR_A)
 	$(CC) $(CFLAGS) $^ -o $@
 
-# SWAR-accelerated SwissTable hash map generator
-cgen-map: src/cgen-map.o $(FRAMEWORK_OBJS) $(LIBPSTR_A)
+cgen-map: src/bin/cgen-map.o $(FRAMEWORK_OBJS) $(LIBPSTR_A)
 	$(CC) $(CFLAGS) $^ -o $@
 
-# SWAR-accelerated SwissTable hash map iterator generator
-cgen-map-iter: src/cgen-map-iter.o $(FRAMEWORK_OBJS) $(LIBPSTR_A)
+cgen-map-iter: src/bin/cgen-map-iter.o $(FRAMEWORK_OBJS) $(LIBPSTR_A)
 	$(CC) $(CFLAGS) $^ -o $@
 
-# Circular Ring Buffer generator
-cgen-ring: src/cgen-ring.o $(FRAMEWORK_OBJS) $(LIBPSTR_A)
+cgen-ring: src/bin/cgen-ring.o $(FRAMEWORK_OBJS) $(LIBPSTR_A)
 	$(CC) $(CFLAGS) $^ -o $@
 
-# Priority Queue generator
-cgen-pqueue: src/cgen-pqueue.o $(FRAMEWORK_OBJS) $(LIBPSTR_A)
+cgen-pqueue: src/bin/cgen-pqueue.o $(FRAMEWORK_OBJS) $(LIBPSTR_A)
 	$(CC) $(CFLAGS) $^ -o $@
 
-# Type-safe Option/Maybe monad generator
-cgen-option: src/cgen-option.o $(FRAMEWORK_OBJS) $(LIBPSTR_A)
+cgen-option: src/bin/cgen-option.o $(FRAMEWORK_OBJS) $(LIBPSTR_A)
 	$(CC) $(CFLAGS) $^ -o $@
 
-# Type-safe Error/Result monad generator
-cgen-result: src/cgen-result.o $(FRAMEWORK_OBJS) $(LIBPSTR_A)
+cgen-result: src/bin/cgen-result.o $(FRAMEWORK_OBJS) $(LIBPSTR_A)
 	$(CC) $(CFLAGS) $^ -o $@
 
-# Self-balancing B-Tree index generator
-cgen-btree: src/cgen-btree.o $(FRAMEWORK_OBJS) $(LIBPSTR_A)
+cgen-btree: src/bin/cgen-btree.o $(FRAMEWORK_OBJS) $(LIBPSTR_A)
 	$(CC) $(CFLAGS) $^ -o $@
 
-# Self-balancing B-Tree index generator
-cgen-btree-iter: src/cgen-btree-iter.o $(FRAMEWORK_OBJS) $(LIBPSTR_A)
+cgen-btree-iter: src/bin/cgen-btree-iter.o $(FRAMEWORK_OBJS) $(LIBPSTR_A)
 	$(CC) $(CFLAGS) $^ -o $@
 
-# Custom type-safe Variant/Sum-Type generator
-cgen-variant: src/cgen-variant.o $(FRAMEWORK_OBJS) $(LIBPSTR_A)
+cgen-variant: src/bin/cgen-variant.o $(FRAMEWORK_OBJS) $(LIBPSTR_A)
 	$(CC) $(CFLAGS) $^ -o $@
 
-# Pattern rule for local src compilation
-src/%.o: src/%.c Makefile
+src/%.o: src/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-clean:
-	rm -f src/*.o cgen cgen-vec cgen-sbovec cgen-map cgen-ring cgen-pqueue cgen-option cgen-result \
-		cgen-btree cgen-variant cgen-map-iter cgen-btree-iter
+src/bin/%.o: src/bin/%.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
-# ============================================================================
-# CGEN AUTOMATED INTEGRATION TESTING HARNESS
-# ============================================================================
-
-TEST_GEN_DIR = test/generated
-# Added -DENABLE_PANIC_TESTING explicitly to the testing configuration flags
-TEST_CFLAGS = -Wall -Wextra -std=c11 -g -DENABLE_PANIC_TESTING -I./$(TEST_GEN_DIR) -I./test -I../libpstr/src -include mock_struct.h
-
-test: all $(LIBPSTR_A)
-	@echo "🚀 Initializing cgen integration test framework..."
+$(TEST_GEN_DIR)/%.c:
 	@mkdir -p $(TEST_GEN_DIR)
-	
-	@echo "📦 Generating container test fixtures..."
-	./cgen-vec -o $(TEST_GEN_DIR) int
-	./cgen-vec -o $(TEST_GEN_DIR) custom_t
-	./cgen-sbovec -o $(TEST_GEN_DIR) int
-	./cgen-sbovec -o $(TEST_GEN_DIR) custom_t
-	./cgen-map -o $(TEST_GEN_DIR) int int
-	./cgen-map -o $(TEST_GEN_DIR) int custom_t
-	./cgen-map-iter -o $(TEST_GEN_DIR) int custom_t
-	./cgen-btree -o $(TEST_GEN_DIR) int int
-	./cgen-btree -o $(TEST_GEN_DIR) int custom_t
-	./cgen-btree-iter -o $(TEST_GEN_DIR) int custom_t
-	./cgen-result -o $(TEST_GEN_DIR) int int
-	./cgen-result -o $(TEST_GEN_DIR) int custom_t
-	./cgen-option -o $(TEST_GEN_DIR) int
-	./cgen-option -o $(TEST_GEN_DIR) custom_t
-	./cgen-ring -o $(TEST_GEN_DIR) int
-	./cgen-ring -o $(TEST_GEN_DIR) custom_t
-	./cgen-pqueue -o $(TEST_GEN_DIR) int
-	./cgen-pqueue -o $(TEST_GEN_DIR) custom_t
-	
-	@echo "🎨 Generating variant test fixtures..."
-	./cgen-variant sample_t high:int low:int text:pstr_builder_t
-	@mv sample_t.h sample_t.c $(TEST_GEN_DIR)/
-	
-	@echo "🔨 Compiling test runner with generated assets..."
-	$(CC) $(TEST_CFLAGS) \
+	@TYPE_NAME=$$(basename $@ .c); \
+	case "$$TYPE_NAME" in \
+		sample_t) \
+			./cgen-variant sample_t high:int low:int text:libpstr_builder_t; \
+			mv sample_t.h sample_t.c $(TEST_GEN_DIR)/ ;; \
+		map_iter_* | btree_iter_*) \
+			TOOL=$$(echo $$TYPE_NAME | cut -d'_' -f1-2 | sed 's/_/-/g'); \
+			KEY=$$(echo $$TYPE_NAME | cut -d'_' -f3); \
+			VAL=$$(echo $$TYPE_NAME | cut -d'_' -f4-); \
+			./cgen-$$TOOL -o $(TEST_GEN_DIR) $$KEY $$VAL ;; \
+		map_* | btree_* | result_*) \
+			TOOL=$$(echo $$TYPE_NAME | cut -d'_' -f1); \
+			KEY=$$(echo $$TYPE_NAME | cut -d'_' -f2); \
+			VAL=$$(echo $$TYPE_NAME | cut -d'_' -f3-); \
+			./cgen-$$TOOL -o $(TEST_GEN_DIR) $$KEY $$VAL ;; \
+		*) \
+			TOOL=$$(echo $$TYPE_NAME | cut -d'_' -f1); \
+			ARG=$$(echo $$TYPE_NAME | cut -d'_' -f2-); \
+			./cgen-$$TOOL -o $(TEST_GEN_DIR) $$ARG ;; \
+	esac
+
+test: all $(ASSETS)
+	gcc $(TEST_CFLAGS) \
 		test/test_main.c \
+		test/test_parser.c \
 		test/test_vec.c \
-		test/test_sbovec.c\
+		test/test_sbovec.c \
 		test/test_map.c \
-		test/generated/map_iter_int_custom.c \
 		test/test_btree.c \
-		test/generated/btree_iter_int_custom.c \
+		test/test_result.c \
 		test/test_option.c \
 		test/test_ring.c \
 		test/test_pqueue.c \
 		test/test_variant.c \
-		test/test_result.c \
-		$(TEST_GEN_DIR)/vec_int.c \
-		$(TEST_GEN_DIR)/vec_custom.c \
-		$(TEST_GEN_DIR)/sbovec_int.c \
-		$(TEST_GEN_DIR)/sbovec_custom.c \
-		$(TEST_GEN_DIR)/map_int_int.c \
-		$(TEST_GEN_DIR)/map_int_custom.c \
-		$(TEST_GEN_DIR)/btree_int_int.c \
-		$(TEST_GEN_DIR)/btree_int_custom.c \
-		$(TEST_GEN_DIR)/result_int_int.c \
-		$(TEST_GEN_DIR)/result_int_custom.c \
-		$(TEST_GEN_DIR)/option_int.c \
-		$(TEST_GEN_DIR)/option_custom.c \
-		$(TEST_GEN_DIR)/ring_int.c \
-		$(TEST_GEN_DIR)/ring_custom.c \
-		$(TEST_GEN_DIR)/pqueue_int.c \
-		$(TEST_GEN_DIR)/pqueue_custom.c \
-		$(TEST_GEN_DIR)/sample_t.c \
-		../libpstr/src/panic.c \
-		$(LIBPSTR_A) \
-		-o test_runner
-	
-	@echo "🧪 Running automated assertions..."
+		$(FRAMEWORK_SRCS) \
+		$(ASSETS) \
+		../libpstr/src/panic.c ../libpstr/libpstr.a -o test_runner
 	./test_runner
-	@echo "✨ Success! All cgen generated containers passed verification tests flawlessly."
-	@$(MAKE) clean_test
+	rm -rf test_runner
 
-clean_test:
-	rm -rf $(TEST_GEN_DIR) test_runner
+clean:
+	rm -f src/*.o src/bin/*.o cgen* test_runner
+	rm -rf $(TEST_GEN_DIR)

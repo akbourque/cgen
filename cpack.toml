@@ -1,0 +1,7 @@
+[package]
+name = "cgen"
+version = "1.0.0"
+edition = "c11"
+
+[dependencies]
+pstr = { path = "../libpstr" }

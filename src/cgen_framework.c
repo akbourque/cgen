@@ -125,55 +125,55 @@ libpstr_pstr_t *cgen_generate_filename(libpstr_pstr_t *container, libpstr_pstr_t
     return generated_name;
 }
 
-static void framework_replace_tokens(libpstr_builder_t *sb, libpstr_pstr_t *replacement) {
-    libpstr_slice_t rep_slice = { .ptr = replacement->buf, .len = replacement->len };
-    libpstr_slice_t base_slice = rep_slice;
-    
-    if (libpstr.slice.ends_with(rep_slice, "_t") == true || libpstr.slice.ends_with(rep_slice, "_T") == true) {
-        base_slice.len -= 2;
-    }
-
-    libpstr_pstr_t *full_exact = libpstr.pstr.from_slice(rep_slice);
-    libpstr_pstr_t *full_upper = libpstr.pstr.from_slice(rep_slice);
-    libpstr.pstr.to_uppercase(full_upper);
-
-    libpstr_pstr_t *base_exact = libpstr.pstr.from_slice(base_slice);
-    libpstr_pstr_t *base_upper = libpstr.pstr.from_slice(base_slice);
-    libpstr.pstr.to_uppercase(base_upper);
-
-    while (1) {
-        libpstr_slice_t match = libpstr.builder.find_cstr(sb, "{{00BU}}");
-        if (match.ptr == NULL) break;
-        size_t offset = (size_t)(match.ptr - (char *)sb->vec.data);
-        libpstr.builder.replace_range(sb, offset, match.len, base_upper->buf, base_upper->len);
-    }
-
-    while (1) {
-        libpstr_slice_t match = libpstr.builder.find_cstr(sb, "{{00B}}");
-        if (match.ptr == NULL) break;
-        size_t offset = (size_t)(match.ptr - (char *)sb->vec.data);
-        libpstr.builder.replace_range(sb, offset, match.len, base_exact->buf, base_exact->len);
-    }
-
-    while (1) {
-        libpstr_slice_t match = libpstr.builder.find_cstr(sb, "{{00U}}");
-        if (match.ptr == NULL) break;
-        size_t offset = (size_t)(match.ptr - (char *)sb->vec.data);
-        libpstr.builder.replace_range(sb, offset, match.len, full_upper->buf, full_upper->len);
-    }
-
-    while (1) {
-        libpstr_slice_t match = libpstr.builder.find_cstr(sb, "{{00}}");
-        if (match.ptr == NULL) break;
-        size_t offset = (size_t)(match.ptr - (char *)sb->vec.data);
-        libpstr.builder.replace_range(sb, offset, match.len, full_exact->buf, full_exact->len);
-    }
-
-    libpstr.pstr.free(full_exact);
-    libpstr.pstr.free(full_upper);
-    libpstr.pstr.free(base_exact);
-    libpstr.pstr.free(base_upper);
-}
+// static void framework_replace_tokens(libpstr_builder_t *sb, libpstr_pstr_t *replacement) {
+//     libpstr_slice_t rep_slice = { .ptr = replacement->buf, .len = replacement->len };
+//     libpstr_slice_t base_slice = rep_slice;
+//
+//     if (libpstr.slice.ends_with(rep_slice, "_t") == true || libpstr.slice.ends_with(rep_slice, "_T") == true) {
+//         base_slice.len -= 2;
+//     }
+//
+//     libpstr_pstr_t *full_exact = libpstr.pstr.from_slice(rep_slice);
+//     libpstr_pstr_t *full_upper = libpstr.pstr.from_slice(rep_slice);
+//     libpstr.pstr.to_uppercase(full_upper);
+//
+//     libpstr_pstr_t *base_exact = libpstr.pstr.from_slice(base_slice);
+//     libpstr_pstr_t *base_upper = libpstr.pstr.from_slice(base_slice);
+//     libpstr.pstr.to_uppercase(base_upper);
+//
+//     while (1) {
+//         libpstr_slice_t match = libpstr.builder.find_cstr(sb, "{{00BU}}");
+//         if (match.ptr == NULL) break;
+//         size_t offset = (size_t)(match.ptr - (char *)sb->vec.data);
+//         libpstr.builder.replace_range(sb, offset, match.len, base_upper->buf, base_upper->len);
+//     }
+//
+//     while (1) {
+//         libpstr_slice_t match = libpstr.builder.find_cstr(sb, "{{00B}}");
+//         if (match.ptr == NULL) break;
+//         size_t offset = (size_t)(match.ptr - (char *)sb->vec.data);
+//         libpstr.builder.replace_range(sb, offset, match.len, base_exact->buf, base_exact->len);
+//     }
+//
+//     while (1) {
+//         libpstr_slice_t match = libpstr.builder.find_cstr(sb, "{{00U}}");
+//         if (match.ptr == NULL) break;
+//         size_t offset = (size_t)(match.ptr - (char *)sb->vec.data);
+//         libpstr.builder.replace_range(sb, offset, match.len, full_upper->buf, full_upper->len);
+//     }
+//
+//     while (1) {
+//         libpstr_slice_t match = libpstr.builder.find_cstr(sb, "{{00}}");
+//         if (match.ptr == NULL) break;
+//         size_t offset = (size_t)(match.ptr - (char *)sb->vec.data);
+//         libpstr.builder.replace_range(sb, offset, match.len, full_exact->buf, full_exact->len);
+//     }
+//
+//     libpstr.pstr.free(full_exact);
+//     libpstr.pstr.free(full_upper);
+//     libpstr.pstr.free(base_exact);
+//     libpstr.pstr.free(base_upper);
+// }
 
 static bool write_file_clobber(const char *path, libpstr_builder_t *sb) {
     FILE *f = fopen(path, "w");
@@ -409,41 +409,41 @@ int cgen_app_run(const cgen_app_def_t *app, int argc, char **argv) {
     return 0;
 }
 
-static void framework_replace_string(libpstr_builder_t *sb, const char *token, const char *rep, size_t rep_len) {
-    while (1) {
-        libpstr_slice_t match = libpstr.builder.find_cstr(sb, token);
-        if (match.ptr == NULL) break;
-        size_t offset = (size_t)(match.ptr - (char *)sb->vec.data);
-        libpstr.builder.replace_range(sb, offset, match.len, rep, rep_len);
-    }
-}
+// static void framework_replace_string(libpstr_builder_t *sb, const char *token, const char *rep, size_t rep_len) {
+//     while (1) {
+//         libpstr_slice_t match = libpstr.builder.find_cstr(sb, token);
+//         if (match.ptr == NULL) break;
+//         size_t offset = (size_t)(match.ptr - (char *)sb->vec.data);
+//         libpstr.builder.replace_range(sb, offset, match.len, rep, rep_len);
+//     }
+// }
 
-static void framework_expand_dual_tokens(libpstr_builder_t *sb, const char *type_name, const char *t_full, const char *t_full_u, const char *t_base, const char *t_base_u) {
-    libpstr_slice_t rep_slice = { .ptr = type_name, .len = strlen(type_name) };
-    libpstr_slice_t base_slice = rep_slice;
-    
-    if (libpstr.slice.ends_with(rep_slice, "_t") == true || libpstr.slice.ends_with(rep_slice, "_T") == true) {
-        base_slice.len -= 2;
-    }
-
-    libpstr_pstr_t *full_exact = libpstr.pstr.from_slice(rep_slice);
-    libpstr_pstr_t *full_upper = libpstr.pstr.from_slice(rep_slice);
-    libpstr.pstr.to_uppercase(full_upper);
-
-    libpstr_pstr_t *base_exact = libpstr.pstr.from_slice(base_slice);
-    libpstr_pstr_t *base_upper = libpstr.pstr.from_slice(base_slice);
-    libpstr.pstr.to_uppercase(base_upper);
-
-    framework_replace_string(sb, t_base_u, base_upper->buf, base_upper->len);
-    framework_replace_string(sb, t_base, base_exact->buf, base_exact->len);
-    framework_replace_string(sb, t_full_u, full_upper->buf, full_upper->len);
-    framework_replace_string(sb, t_full, full_exact->buf, full_exact->len);
-
-    libpstr.pstr.free(full_exact); 
-    libpstr.pstr.free(full_upper);
-    libpstr.pstr.free(base_exact); 
-    libpstr.pstr.free(base_upper);
-}
+// static void framework_expand_dual_tokens(libpstr_builder_t *sb, const char *type_name, const char *t_full, const char *t_full_u, const char *t_base, const char *t_base_u) {
+//     libpstr_slice_t rep_slice = { .ptr = type_name, .len = strlen(type_name) };
+//     libpstr_slice_t base_slice = rep_slice;
+//
+//     if (libpstr.slice.ends_with(rep_slice, "_t") == true || libpstr.slice.ends_with(rep_slice, "_T") == true) {
+//         base_slice.len -= 2;
+//     }
+//
+//     libpstr_pstr_t *full_exact = libpstr.pstr.from_slice(rep_slice);
+//     libpstr_pstr_t *full_upper = libpstr.pstr.from_slice(rep_slice);
+//     libpstr.pstr.to_uppercase(full_upper);
+//
+//     libpstr_pstr_t *base_exact = libpstr.pstr.from_slice(base_slice);
+//     libpstr_pstr_t *base_upper = libpstr.pstr.from_slice(base_slice);
+//     libpstr.pstr.to_uppercase(base_upper);
+//
+//     framework_replace_string(sb, t_base_u, base_upper->buf, base_upper->len);
+//     framework_replace_string(sb, t_base, base_exact->buf, base_exact->len);
+//     framework_replace_string(sb, t_full_u, full_upper->buf, full_upper->len);
+//     framework_replace_string(sb, t_full, full_exact->buf, full_exact->len);
+//
+//     libpstr.pstr.free(full_exact); 
+//     libpstr.pstr.free(full_upper);
+//     libpstr.pstr.free(base_exact); 
+//     libpstr.pstr.free(base_upper);
+// }
 
 int cgen_app_run_dual(const cgen_app_dual_def_t *app, int argc, char **argv) {
     cgen_opt_t schema[2];

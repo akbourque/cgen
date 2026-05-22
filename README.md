@@ -42,19 +42,24 @@ type-safe, and fully documented data structures tailored exactly to your specifi
 This project depends on the `libpstr` library. To build `cgen` successfully using the provided Makefile,
 you must clone both repositories side-by-side in the same workspace directory:
 
-```fish
-# 1. Clone both repositories into the same parent folder
-git clone [https://github.com/yourusername/libpstr.git](https://github.com/yourusername/libpstr.git)
-git clone [https://github.com/yourusername/cgen.git](https://github.com/yourusername/cgen.git)
 
-# 2. Build and run the test suite
+### 1. Clone both repositories into the same parent folder 
+```bash
+git clone https://github.com/akbourque/libpstr
+git clone https://github.com/akbourque/cgen
+```
+
+### 2. Build and run the test suite
 
 Build the Toolchain
 Compile the entire suite of generators from the source root directory using the central configuration engine:
 ```bash
 make
 ```
-Make sure all generated sub-commands `cgen-vec`, `cgen-sbovec` and `cgen-map`, etc are in a directory that is in your PATH so that cgen can find them.  
+Make sure all generated sub-commands `cgen-vec`, `cgen-sbovec` and `cgen-map`, etc are in a directory that is in your PATH so that cgen can find them. Run the tests:
+```bash
+make test
+```
 
 
 ### 2. Generate Type-Safe Containers
@@ -98,15 +103,15 @@ autocomplete context definitions as you type.
 
 `cgen` is built on a decoupled, highly extensible framework architecture. You can easily add your own domain-specific data structures or template generators without writing any argument-parsing, flag-validation, or file-handling boilerplate.
 
-### Step 1: Choose Your Engine Type
+### Step 1. Choose Your Engine Type
 Determine if your custom generator requires a single data type (like a vector) or a dual-type pair (like a map or result).
 
-### Step 2: Implement Your Sub-command File
+### Step 2. Implement Your Sub-command File
 Create a new standalone source file (e.g., `cgen-stack.c`). Define your code layout templates using string variables, leveraging our standard token wrappers:
 * For Single-Type Engines: Use `{{00}}` (exact type name) and `{{00BU}}` (screaming uppercase base type name).
 * For Dual-Type Engines: Use `{{KEY}}`/`{{VAL}}` and their associated formatting modifiers (`_B`, `_BU`).
 
-### Step 3: Wire into the Framework Entrypoint
+### Step 3. Wire into the Framework Entrypoint
 Populate the appropriate app configuration structure and forward `argc`/`argv` straight into the framework's optimized runner paths:
 
 ```c
@@ -126,7 +131,7 @@ Populate the appropriate app configuration structure and forward `argc`/`argv` s
         return cgen_app_run(&app, argc - 1, argv + 1);
     }
 ``` 
-### Step 4: Update the Build System
+### Step 4. Update the Build System
 Open the Makefile, add your new executable name to the all and clean target variables,
 and supply the single-line framework compilation target:
 ```Makefile
@@ -137,13 +142,8 @@ and supply the single-line framework compilation target:
 
 `cgen` features a robust, compiler-level integration and regression testing matrix designed to evaluate container code-generation accuracy, type-safety boundaries, and memory lifecycle preservation across both primitive types and complex, heap-allocated user objects.
 
-### 🏛️ Architecture: Unity Build Design
-The test framework leverages a **Unity Build (Single Translation Unit)** architecture. Individual sub-suite modules (e.g., `test_vec.c`, `test_map.c`) are unified directly inside the primary test driver, `test_main.c`, via preprocessor routing. 
-
-This provides massive advantages:
-1. **Zero Makefile Drift:** Contributors can add test suites for brand new generators without ever needing to alter object linkage rules inside the `Makefile`.
-2. **Deterministic Flag Propagation:** Critical compilation rules (such as `-include mock_struct.h` and system attribute optimizations) automatically flow cleanly down to all modular test files.
-3. **No Header Boilerplate:** Exporting functions across separate translation boundaries is eliminated, keeping the testing codebase lean and discoverable.
+### 🏛️ Architecture
+Individual sub-suite modules (e.g., `test_vec.c`, `test_map.c`) are used to test each generator. 
 
 ### 🎯 Assertive Testing Methodology
 Rather than relying on visual console printouts, this harness uses a strict **assertive methodology**. Every invariant, capacity growth boundary, and data boundary condition is verified using strict compile-time and runtime `assert()` statements. If a test does not exit cleanly with code `0`, the pipeline safely halts and catches regressions instantly.
@@ -172,11 +172,12 @@ The framework uses a fully insulated, sandboxed sandbox model (`test/generated/`
 
 To execute the code-generation stream, compile the assertion suite, run all validations, and cleanly tear down the sandboxed targets, execute the master target command:
 
-```fish
+```bash
 make clean && make test
+```
 
 ## More subcommand engines to come
-Coming soon more subcommand engines to generate other usable containers and types.
+Coming soon more subcommand engines.
 
 
 ## Acknowledgments
